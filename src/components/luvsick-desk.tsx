@@ -4,7 +4,7 @@ import { PRODUCTS, SIZES } from "@/lib/luvsick";
 import { luvDesk, luvSaveCoupon, luvSetStock } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number };
-type Order = { id: string; ref: string; name: string; phone: string; city: string; pay: string; totalLabel: string; coupon?: string };
+type Order = { id: string; ref: string; name: string; phone: string; city: string; country?: string; postal?: string; pay: string; totalLabel: string; coupon?: string };
 type Visits = { total: number; countries: { country: string; n: number }[]; cities: { country: string; city: string; n: number }[] };
 type Coupon = { code: string; percent: number; active: boolean };
 
@@ -126,7 +126,7 @@ export function LuvSickDesk() {
             {orders.map((order) => (
               <li key={order.id} className="bg-white p-3 text-sm text-black">
                 <p className="font-bold">{order.ref} · {order.totalLabel}</p>
-                <p>{order.name} · {order.phone} · {order.city}</p>
+                <p>{order.name} · {order.phone} · {order.postal} {order.city} · {order.country}</p>
                 <p>{order.pay}{order.coupon ? ` · ${order.coupon}` : ""}</p>
               </li>
             ))}

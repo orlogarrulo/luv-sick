@@ -127,6 +127,7 @@ export const WA = {
 
 type Dict = {
   enter: string;
+  ask: string;
   skip: string;
   shop: string;
   bag: string;
@@ -145,6 +146,9 @@ type Dict = {
   phone: string;
   address: string;
   city: string;
+  country: string;
+  postal: string;
+  postalBad: string;
   send: string;
   required: string;
   pay: string;
@@ -184,6 +188,7 @@ type Dict = {
 export const COPY: Record<Lang, Dict> = {
   pt: {
     enter: "Entrar",
+    ask: "Como contactar?",
     skip: "Saltar",
     shop: "Loja",
     bag: "Saco",
@@ -201,7 +206,10 @@ export const COPY: Record<Lang, Dict> = {
     name: "Nome",
     phone: "Telefone",
     address: "Morada",
-    city: "Cidade / país",
+    city: "Cidade",
+    country: "País",
+    postal: "Código postal",
+    postalBad: "Em Portugal o código é 0000-000. Em Angola, escreve o código que usas.",
     send: "Enviar encomenda",
     required: "Preenche este campo.",
     pay: "Pagamento",
@@ -248,6 +256,7 @@ export const COPY: Record<Lang, Dict> = {
   },
   en: {
     enter: "Enter",
+    ask: "How can I get in touch?",
     skip: "Skip",
     shop: "Shop",
     bag: "Bag",
@@ -265,7 +274,10 @@ export const COPY: Record<Lang, Dict> = {
     name: "Name",
     phone: "Phone",
     address: "Address",
-    city: "City / country",
+    city: "City",
+    country: "Country",
+    postal: "Postcode",
+    postalBad: "In Portugal the postcode is 0000-000. In Angola, write the code you use.",
     send: "Send order",
     required: "Fill in this field.",
     pay: "Payment",
@@ -312,6 +324,7 @@ export const COPY: Record<Lang, Dict> = {
   },
   fr: {
     enter: "Entrer",
+    ask: "Comment vous contacter ?",
     skip: "Passer",
     shop: "Boutique",
     bag: "Sac",
@@ -329,7 +342,10 @@ export const COPY: Record<Lang, Dict> = {
     name: "Nom",
     phone: "Téléphone",
     address: "Adresse",
-    city: "Ville / pays",
+    city: "Ville",
+    country: "Pays",
+    postal: "Code postal",
+    postalBad: "Au Portugal, le code est 0000-000. En Angola, écris le code que tu utilises.",
     send: "Envoyer la commande",
     required: "Remplis ce champ.",
     pay: "Paiement",

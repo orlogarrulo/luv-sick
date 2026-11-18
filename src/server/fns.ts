@@ -347,6 +347,8 @@ export const luvPlace = createServerFn({ method: "POST" })
       phone: string;
       address: string;
       city: string;
+      country: string;
+      postal: string;
       market: string;
       pay: string;
       coupon: string;
