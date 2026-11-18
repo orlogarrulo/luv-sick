@@ -11,6 +11,8 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Luv Sick" },
       { name: "theme-color", content: "#000000" },
+      { name: "apple-mobile-web-app-title", content: "Luv Sick" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "description", content: "Luv Sick — Portugal e Angola. PT, EN, FR." },
     ],
     links: [
@@ -27,8 +29,7 @@ export const Route = createRootRoute({
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   component: () => (
