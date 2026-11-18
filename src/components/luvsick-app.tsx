@@ -208,18 +208,24 @@ export function LuvSickApp() {
     return lines.find((line) => line.productId === productId && line.size === size)?.qty ?? 0;
   }
 
-  function addCurrent() {
-    if (available(product.id, size) - inBag(product.id, size) < 1) {
+  function addProduct(productId: string, nextSize: string) {
+    if (available(productId, nextSize) - inBag(productId, nextSize) < 1) {
       setOrderError(t.noStock);
       return;
     }
     setOrderError("");
+    setProductId(productId);
+    setSize(nextSize);
     setLines((current) => {
-      const found = current.find((line) => line.productId === product.id && line.size === size);
+      const found = current.find((line) => line.productId === productId && line.size === nextSize);
       if (found) return current.map((line) => (line === found ? { ...line, qty: line.qty + 1 } : line));
-      return [...current, { productId: product.id, size, qty: 1 }];
+      return [...current, { productId, size: nextSize, qty: 1 }];
     });
     setView("bag");
+  }
+
+  function addCurrent() {
+    addProduct(product.id, size);
   }
 
   function setQty(index: number, qty: number) {
@@ -310,7 +316,7 @@ export function LuvSickApp() {
           <div className="absolute inset-0 bg-[#2a211c]/45" />
           <div className="relative z-10 flex flex-col items-center px-6">
             <img src="/luvsick/brand/logo-white.svg" alt="Luv Sick" className="h-44 w-44 object-contain sm:h-56 sm:w-56" />
-            <button type="button" onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }} className="mt-8 rounded-full bg-white px-10 py-3 text-xs font-medium tracking-[0.28em] text-[#1a1714] uppercase">
+            <button type="button" onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }} className="btn-brown mt-8 rounded-full px-10 py-3">
               {t.enter}
             </button>
           </div>
@@ -318,7 +324,7 @@ export function LuvSickApp() {
       ) : (
         <>
           <header className="sticky top-0 z-20 border-b border-[#e4ddd4] bg-[#f4f1ec]/95 backdrop-blur">
-            <div className="flex items-center gap-2 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2">
               <button type="button" onClick={() => { setView("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="mr-auto shrink-0" aria-label="Luv Sick">
                 <img src="/luvsick/brand/logo-black.svg" alt="Luv Sick" className="h-11 w-11 object-contain" />
               </button>
@@ -401,26 +407,26 @@ export function LuvSickApp() {
 
           {view === "shop" ? (
             <>
-              <section id="inicio" className="relative overflow-hidden">
+              <section id="inicio">
                 <video
                   src="/luvsick/brand/hero-walk.mp4"
                   poster="/luvsick/brand/hero.jpg"
-                  className="h-[78vh] min-h-[28rem] w-full object-cover object-center"
+                  className="mx-auto block h-auto max-h-[70vh] w-full bg-[#ebe4da] object-contain"
                   autoPlay
                   muted
                   loop
                   playsInline
                 />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#1c1917]/70 to-transparent px-5 pt-24 pb-8 sm:px-10">
-                  <p className="text-[11px] tracking-[0.28em] text-white uppercase">{t.newIn}</p>
-                  <h1 className="mt-2 max-w-[12ch] text-4xl leading-none font-medium tracking-tight text-white sm:text-5xl">{t.heroTitle}</h1>
-                  <button type="button" onClick={() => document.getElementById("loja")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 rounded-full bg-white px-6 py-3 text-[11px] tracking-[0.22em] text-[#1a1714] uppercase">
+                <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
+                  <p className="text-[11px] tracking-[0.28em] uppercase">{t.newIn}</p>
+                  <h1 className="mt-2 text-4xl leading-tight font-medium tracking-tight sm:text-6xl">{t.heroTitle}</h1>
+                  <button type="button" onClick={() => document.getElementById("loja")?.scrollIntoView({ behavior: "smooth" })} className="btn-brown mt-5 rounded-full px-6 py-3">
                     {t.shop}
                   </button>
                 </div>
               </section>
-              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
               <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
+              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => addProduct(id, "M")} />
             </>
           ) : null}
           {view === "product" ? (
@@ -480,7 +486,7 @@ export function LuvSickApp() {
                 {t.coupon}
                 <span className="flex gap-2">
                   <input value={coupon} onChange={(event) => setCoupon(event.target.value.toUpperCase())} className="min-w-0 flex-1 rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal uppercase text-[#1a1714]" />
-                  <button type="button" onClick={applyCoupon} className="rounded-full bg-[#1a1714] px-4 font-bold text-white">{t.apply}</button>
+                  <button type="button" onClick={applyCoupon} className="btn-brown rounded-full px-4">{t.apply}</button>
                 </span>
                 {couponNote ? <span className="font-normal text-[#1a1714]/70">{couponNote}</span> : null}
               </label>
@@ -500,7 +506,7 @@ export function LuvSickApp() {
                 ))}
                 {payError ? <span className="text-sm text-[#1a1714]/70">{payError}</span> : null}
               </fieldset>
-              <button className="rounded-full bg-[#1a1714] px-4 py-3 font-bold text-white">{t.send}</button>
+              <button className="btn-brown rounded-full px-4 py-3">{t.send}</button>
             </form>
           ) : null}
           {view === "sent" ? (
@@ -528,7 +534,7 @@ export function LuvSickApp() {
                 <p className="text-lg font-bold">{t.total} {totalLabel}</p>
               </div>
               <p className="text-sm text-[#1a1714]/70">{t.sentNote}</p>
-              <a href={waLink(market, orderText(refCode))} target="_blank" rel="noreferrer" className="rounded-full bg-[#1a1714] px-4 py-3 text-center font-bold text-white">
+              <a href={waLink(market, orderText(refCode))} target="_blank" rel="noreferrer" className="btn-brown rounded-full px-4 py-3 text-center">
                 {t.whatsapp} · {WA[market].label}
               </a>
               <a href={waLink(market === "AO" ? "PT" : "AO", orderText(refCode))} target="_blank" rel="noreferrer" className="text-center text-sm underline">
@@ -645,19 +651,19 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
         }
       }}
     >
-      <div className="relative h-[72dvh] w-full bg-white">
+      <div className="relative mx-auto flex h-[70vh] max-h-[760px] w-full max-w-3xl items-center justify-center bg-white">
         {spin.video ? (
           <video
             key={spin.video}
             src={spin.video}
-            className="h-full w-full object-contain"
+            className="max-h-full max-w-full object-contain"
             autoPlay
             muted
             playsInline
             onEnded={() => setIndex((current) => (current + 1) % ids.length)}
           />
         ) : (
-          <img src={spin.stills?.[turn]} alt="" className="h-full w-full object-contain" />
+          <img src={spin.stills?.[turn]} alt="" className="max-h-full max-w-full object-contain" />
         )}
         <button
           type="button"
@@ -684,11 +690,11 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2">
+      <div className="mx-auto flex max-w-lg justify-center gap-4 px-4 pb-10">
         {([{ src: spin.a, label: spin.la[lang] }, { src: spin.b, label: spin.lb[lang] }] as const).map((item) => (
-          <button key={item.src} type="button" onClick={() => onOpen(id)} className="text-left">
-            <img src={item.src} alt={item.label} className="aspect-square w-full object-cover" />
-            <span className="block px-4 py-3 text-[11px] tracking-[0.22em] uppercase">{item.label}</span>
+          <button key={item.src} type="button" onClick={() => onOpen(id)} className="w-36 text-left sm:w-44">
+            <img src={item.src} alt={item.label} className="h-40 w-full rounded-2xl object-cover sm:h-48" />
+            <span className="mt-2 block text-[11px] tracking-[0.22em] uppercase">{item.label}</span>
           </button>
         ))}
       </div>
@@ -696,7 +702,7 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
   );
 }
 
-function Catalog({ market, lang, stock, known, onOpen }: { market: Market; lang: Lang; stock: Record<string, number>; known: boolean; onOpen: (id: string) => void }) {
+function Catalog({ market, lang, stock, known, onOpen, onBuy }: { market: Market; lang: Lang; stock: Record<string, number>; known: boolean; onOpen: (id: string) => void; onBuy: (id: string) => void }) {
   const t = COPY[lang];
   return (
     <main id="loja" className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:grid-cols-3">
@@ -704,15 +710,18 @@ function Catalog({ market, lang, stock, known, onOpen }: { market: Market; lang:
       {PRODUCTS.map((item) => {
         const gone = known && SIZES.every((size) => (stock[`${item.id}|${size}`] ?? 0) <= 0);
         return (
-          <button key={item.id} type="button" onClick={() => onOpen(item.id)} className="grid bg-[#f4f1ec] text-left text-[#1a1714]">
-            <span className="aspect-[3/4] overflow-hidden bg-[#ebe4da]">
-              <img src={item.images[0]} alt={item.alt[lang][0]} className="h-full w-full object-cover object-[center_12%] scale-110" />
-            </span>
-            <span className="grid gap-1 py-3">
-              <span className="text-sm tracking-wide">{item.name[lang]}</span>
-              <span className="text-sm">{gone ? t.soldOut : formatMoney(item, market)}</span>
-            </span>
-          </button>
+          <article key={item.id} className="grid text-left text-[#1a1714]">
+            <button type="button" onClick={() => onOpen(item.id)} className="aspect-[3/4] overflow-hidden bg-white">
+              <img src={item.images[0]} alt={item.alt[lang][0]} className="h-full w-full object-contain" />
+            </button>
+            <div className="grid gap-2 py-3">
+              <p className="text-sm tracking-wide">{item.name[lang]}</p>
+              <p className="text-sm">{gone ? t.soldOut : formatMoney(item, market)}</p>
+              <button type="button" onClick={() => onBuy(item.id)} disabled={gone} className="btn-brown w-fit rounded-full px-5 py-2 disabled:bg-[#1a1714]/30">
+                {gone ? t.soldOut : t.buy}
+              </button>
+            </div>
+          </article>
         );
       })}
     </main>
@@ -743,13 +752,13 @@ function ProductView({
   const t = COPY[lang];
   return (
     <article className="mx-auto grid max-w-3xl gap-4 px-4 py-4">
-      <div className="aspect-[3/4] overflow-hidden bg-[#ebe4da]">
-        <img src={product.images[shot]} alt={product.alt[lang][shot]} className="h-full w-full object-cover object-[center_16%]" />
+      <div className="overflow-hidden rounded-2xl bg-[#ebe4da]">
+        <img src={product.images[shot]} alt={product.alt[lang][shot]} className="mx-auto max-h-[70vh] w-full object-contain" />
       </div>
       {SPIN[product.id] ? (
-        <div className="grid grid-cols-2 gap-2">
-          <img src={SPIN[product.id].a} alt={SPIN[product.id].la[lang]} className="aspect-square w-full object-cover" />
-          <img src={SPIN[product.id].b} alt={SPIN[product.id].lb[lang]} className="aspect-square w-full object-cover" />
+        <div className="flex justify-center gap-3">
+          <img src={SPIN[product.id].a} alt={SPIN[product.id].la[lang]} className="h-36 w-28 rounded-2xl object-cover" />
+          <img src={SPIN[product.id].b} alt={SPIN[product.id].lb[lang]} className="h-36 w-28 rounded-2xl object-cover" />
         </div>
       ) : null}
       <div className="flex gap-2">
@@ -772,7 +781,7 @@ function ProductView({
           </button>
         ))}
       </div>
-      <button type="button" onClick={onAdd} disabled={left < 1} className="rounded-full bg-[#1a1714] px-4 py-3 font-bold text-white disabled:bg-[#1a1714]/30">{left < 1 ? t.soldOut : t.add}</button>
+      <button type="button" onClick={onAdd} disabled={left < 1} className="btn-brown w-fit rounded-full px-5 py-3">{left < 1 ? t.soldOut : t.add}</button>
       <p className="text-sm text-[#1a1714]/70">{left < 1 ? t.noStock : t.left.replace("{n}", String(left))}</p>
     </article>
   );
@@ -827,7 +836,7 @@ function BagView({
         <>
           <Totals lang={lang} market={market} priced={priced} />
           {!priced.tracksuitDeal && lines.some((line) => line.productId.startsWith("tracksuit-")) ? <p className="text-sm text-[#1a1714]/70">{t.tracksuitSoon}</p> : null}
-          <button type="button" onClick={onCheckout} className="rounded-full bg-[#1a1714] px-4 py-3 font-bold text-white">{t.checkout}</button>
+          <button type="button" onClick={onCheckout} className="btn-brown w-fit rounded-full px-5 py-3">{t.checkout}</button>
         </>
       ) : null}
     </section>
@@ -837,31 +846,21 @@ function BagView({
 function Story({ lang }: { lang: Lang }) {
   const t = COPY[lang];
   return (
-    <section id="marca" className="mx-auto grid max-w-3xl gap-6 px-4 py-16">
+    <section id="marca" className="mx-auto max-w-3xl px-4 py-16">
       <h2 className="text-[11px] tracking-[0.28em] uppercase">{t.about}</h2>
-      <p className="max-w-xl text-3xl leading-tight font-medium sm:text-4xl">🖤 {t.storyTitle}</p>
-      <p className="max-w-xl text-lg leading-snug">{t.storyLead}</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {t.founders.map((person) => {
-          const age = person.role.match(/\d+/)?.[0] ?? "";
-          const craft = person.role.split("·").slice(1).join("·").trim();
-          return (
-            <article key={person.name} className="grid content-start gap-3 rounded-[2rem] bg-white p-6 text-[#1a1714]">
-              <p className="text-5xl leading-none font-medium tracking-tight">{person.mark} {age}</p>
-              <div>
-                <p className="text-lg font-medium">{person.name}</p>
-                <p className="text-[11px] tracking-[0.22em] uppercase">{craft}</p>
-              </div>
-              <p className="text-sm leading-relaxed">{person.text}</p>
-            </article>
-          );
-        })}
-      </div>
-      <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm tracking-wide">
-        {t.tags.map((tag) => (
-          <span key={tag}>{tag}</span>
+      <p className="mt-4 max-w-xl text-3xl leading-tight font-medium sm:text-4xl">{t.storyTitle}</p>
+      <p className="mt-4 max-w-xl text-lg leading-snug">{t.storyLead}</p>
+      <div className="mt-10 divide-y divide-[#1a1714]/15">
+        {t.founders.map((person) => (
+          <article key={person.name} className="grid gap-3 py-8 sm:grid-cols-[16rem_1fr] sm:items-baseline sm:gap-10">
+            <div>
+              <p className="text-2xl font-medium tracking-tight sm:text-3xl">{person.name}</p>
+              <p className="mt-1 text-[11px] tracking-[0.22em] uppercase">{person.role}</p>
+            </div>
+            <p className="max-w-md text-sm leading-relaxed">{person.text}</p>
+          </article>
         ))}
-      </p>
+      </div>
     </section>
   );
 }

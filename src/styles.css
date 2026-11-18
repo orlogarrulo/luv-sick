@@ -101,6 +101,19 @@ html[data-theme="night"] {
   }
 }
 
+.btn-brown {
+  background-image: linear-gradient(135deg, #f4e7da 0%, #c9a07e 52%, #7a5340 100%);
+  color: #2c1b12;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.btn-brown:disabled {
+  opacity: 0.45;
+}
+
 .reel-turn {
   animation: reel-drift 16s ease-in-out infinite alternate;
 }

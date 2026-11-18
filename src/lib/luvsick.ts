@@ -153,6 +153,7 @@ type Dict = {
   back: string;
   size: string;
   add: string;
+  buy: string;
   added: string;
   qty: string;
   remove: string;
@@ -226,6 +227,7 @@ export const COPY: Record<Lang, Dict> = {
     back: "Costas",
     size: "Tamanho",
     add: "Juntar ao saco",
+    buy: "Comprar",
     added: "No saco",
     qty: "Quantidade",
     remove: "Tirar",
@@ -306,6 +308,7 @@ export const COPY: Record<Lang, Dict> = {
     back: "Back",
     size: "Size",
     add: "Add to bag",
+    buy: "Buy",
     added: "In the bag",
     qty: "Quantity",
     remove: "Remove",
@@ -386,6 +389,7 @@ export const COPY: Record<Lang, Dict> = {
     back: "Dos",
     size: "Taille",
     add: "Ajouter au sac",
+    buy: "Acheter",
     added: "Dans le sac",
     qty: "Quantité",
     remove: "Retirer",
