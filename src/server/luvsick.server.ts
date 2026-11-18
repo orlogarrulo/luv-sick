@@ -16,11 +16,14 @@ export type DeskOrder = {
   phone: string;
   address: string;
   city: string;
+  country: string;
+  postal: string;
   market: string;
   pay: string;
   totalLabel: string;
   coupon: string;
   lines: Need[];
+  seen: boolean;
 };
 
 function allowed(code: string) {
@@ -50,19 +53,30 @@ export async function luvStock(): Promise<StockRow[]> {
   return rows.map((row) => ({ productId: row.product_id, size: row.size, qty: Number(row.qty) }));
 }
 
+function postalOk(country: string, postal: string) {
+  const value = postal.trim();
+  if (country === "PT") return /^\d{4}-\d{3}$/.test(value);
+  return value.length >= 3 && value.length <= 10;
+}
+
 export async function luvPlace(input: {
   lines: Need[];
   name: string;
   phone: string;
   address: string;
   city: string;
+  country: string;
+  postal: string;
   market: string;
   pay: string;
   coupon: string;
 }) {
   const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
-  if (!lines.length || !input.name.trim() || !input.phone.trim()) return { ok: false as const, error: "stock" as const };
-  const market: Market = input.market === "AO" ? "AO" : "PT";
+  const country = input.country === "AO" || input.country === "PT" ? input.country : "";
+  if (!lines.length || !input.name.trim() || !input.phone.trim() || !country || !postalOk(country, input.postal)) {
+    return { ok: false as const, error: "form" as const };
+  }
+  const market: Market = country;
   const sql = await ensureStock();
   const asked = input.coupon.trim().toUpperCase();
   let percent = 0;
@@ -91,8 +105,8 @@ export async function luvPlace(input: {
        returning 1
      ),
      ins as (
-       insert into luv_orders (id, ref, customer_name, phone, address, city, market, pay, total_label, lines, coupon)
-       select $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+       insert into luv_orders (id, ref, customer_name, phone, address, city, country, postal, market, pay, total_label, lines, coupon)
+       select $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
        from gate where good
        returning ref
      )
@@ -105,6 +119,8 @@ export async function luvPlace(input: {
       input.phone.trim(),
       input.address.trim(),
       input.city.trim(),
+      country,
+      input.postal.trim(),
       market,
       input.pay,
       formatAmount(priced.total, market),
@@ -132,11 +148,14 @@ function mapOrder(row: Record<string, unknown>): DeskOrder {
     phone: String(row.phone),
     address: String(row.address),
     city: String(row.city),
+    country: String(row.country ?? ""),
+    postal: String(row.postal ?? ""),
     market: String(row.market),
     pay: String(row.pay),
     totalLabel: String(row.total_label),
     coupon: String(row.coupon ?? ""),
     lines,
+    seen: Boolean(row.seen),
   };
 }
 
@@ -156,6 +175,13 @@ export async function luvDesk(code: string) {
     visits,
     coupons: coupons.map((row) => ({ code: row.code, percent: Number(row.percent), active: Boolean(row.active) })),
   };
+}
+
+export async function luvAckOrder(code: string, id: string) {
+  if (!allowed(code)) return { ok: false as const };
+  const sql = await ensureStock();
+  await sql.query(`update luv_orders set seen = true where id = $1`, [id]);
+  return { ok: true as const };
 }
 
 export async function luvSetStock(code: string, productId: string, size: string, qty: number) {

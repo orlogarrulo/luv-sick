@@ -127,6 +127,7 @@ export const WA = {
 
 type Dict = {
   enter: string;
+  ask: string;
   skip: string;
   shop: string;
   bag: string;
@@ -145,6 +146,9 @@ type Dict = {
   phone: string;
   address: string;
   city: string;
+  country: string;
+  postal: string;
+  postalBad: string;
   send: string;
   required: string;
   pay: string;
@@ -176,6 +180,17 @@ type Dict = {
   marketName: string;
   storyTitle: string;
   storyLead: string;
+  home: string;
+  about: string;
+  lookbook: string;
+  contact: string;
+  newIn: string;
+  arrivals: string;
+  collection: string;
+  explore: string;
+  heroTitle: string;
+  sound: string;
+  mute: string;
   founders: { name: string; role: string; text: string }[];
   orderLead: string;
   faqs: { q: string; a: string }[];
@@ -184,6 +199,7 @@ type Dict = {
 export const COPY: Record<Lang, Dict> = {
   pt: {
     enter: "Entrar",
+    ask: "Como contactar?",
     skip: "Saltar",
     shop: "Loja",
     bag: "Saco",
@@ -201,7 +217,10 @@ export const COPY: Record<Lang, Dict> = {
     name: "Nome",
     phone: "Telefone",
     address: "Morada",
-    city: "Cidade / país",
+    city: "Cidade",
+    country: "País",
+    postal: "Código postal",
+    postalBad: "Em Portugal o código é 0000-000. Em Angola, escreve o código que usas.",
     send: "Enviar encomenda",
     required: "Preenche este campo.",
     pay: "Pagamento",
@@ -233,6 +252,17 @@ export const COPY: Record<Lang, Dict> = {
     marketName: "País",
     storyTitle: "Quem faz a Luv Sick",
     storyLead: "Destes dois jovens nasceu a marca. Os dois têm o prazer de receber e fazer as vendas eles mesmos. É um pormenor da casa.",
+    home: "Início",
+    about: "A marca",
+    lookbook: "Lookbook",
+    contact: "Contacto",
+    newIn: "Novidade",
+    arrivals: "Novidades",
+    collection: "Coleção 01",
+    explore: "Ver",
+    heroTitle: "Para todos os dias",
+    sound: "Som",
+    mute: "Sem som",
     founders: [
       { name: "Alessandro Arrulo", role: "18 anos · design", text: "Trata do desenho: o corte, o gráfico e o detalhe que vês na peça. Recebe as encomendas e faz as vendas ele mesmo." },
       { name: "Kelyane", role: "17 anos · marketing", text: "Trata do marketing e da voz da marca. Recebe as encomendas e faz as vendas ele mesmo." },
@@ -248,6 +278,7 @@ export const COPY: Record<Lang, Dict> = {
   },
   en: {
     enter: "Enter",
+    ask: "How can I get in touch?",
     skip: "Skip",
     shop: "Shop",
     bag: "Bag",
@@ -265,7 +296,10 @@ export const COPY: Record<Lang, Dict> = {
     name: "Name",
     phone: "Phone",
     address: "Address",
-    city: "City / country",
+    city: "City",
+    country: "Country",
+    postal: "Postcode",
+    postalBad: "In Portugal the postcode is 0000-000. In Angola, write the code you use.",
     send: "Send order",
     required: "Fill in this field.",
     pay: "Payment",
@@ -297,6 +331,17 @@ export const COPY: Record<Lang, Dict> = {
     marketName: "Country",
     storyTitle: "Who makes Luv Sick",
     storyLead: "The brand started with these two. They both like taking the orders and making the sales themselves. It's a personal touch.",
+    home: "Home",
+    about: "About",
+    lookbook: "Lookbook",
+    contact: "Contact",
+    newIn: "New arrival",
+    arrivals: "New arrivals",
+    collection: "Collection 01",
+    explore: "Explore",
+    heroTitle: "Everyday pieces",
+    sound: "Sound",
+    mute: "Mute",
     founders: [
       { name: "Alessandro Arrulo", role: "18 · design", text: "He handles the design: the cut, the graphic and the detail you see on the piece. He takes the orders and makes the sales himself." },
       { name: "Kelyane", role: "17 · marketing", text: "He handles the marketing and the brand's voice. He takes the orders and makes the sales himself." },
@@ -312,6 +357,7 @@ export const COPY: Record<Lang, Dict> = {
   },
   fr: {
     enter: "Entrer",
+    ask: "Comment vous contacter ?",
     skip: "Passer",
     shop: "Boutique",
     bag: "Sac",
@@ -329,7 +375,10 @@ export const COPY: Record<Lang, Dict> = {
     name: "Nom",
     phone: "Téléphone",
     address: "Adresse",
-    city: "Ville / pays",
+    city: "Ville",
+    country: "Pays",
+    postal: "Code postal",
+    postalBad: "Au Portugal, le code est 0000-000. En Angola, écris le code que tu utilises.",
     send: "Envoyer la commande",
     required: "Remplis ce champ.",
     pay: "Paiement",
@@ -361,6 +410,17 @@ export const COPY: Record<Lang, Dict> = {
     marketName: "Pays",
     storyTitle: "Qui fait Luv Sick",
     storyLead: "La marque est née de ces deux jeunes. Tous les deux aiment recevoir les commandes et faire les ventes eux-mêmes. C'est un détail de la maison.",
+    home: "Accueil",
+    about: "La marque",
+    lookbook: "Lookbook",
+    contact: "Contact",
+    newIn: "Nouveauté",
+    arrivals: "Nouveautés",
+    collection: "Collection 01",
+    explore: "Voir",
+    heroTitle: "Pour tous les jours",
+    sound: "Son",
+    mute: "Muet",
     founders: [
       { name: "Alessandro Arrulo", role: "18 ans · design", text: "Il s'occupe du dessin : la coupe, le graphique et le détail que tu vois sur la pièce. Il reçoit les commandes et fait les ventes lui-même." },
       { name: "Kelyane", role: "17 ans · marketing", text: "Il s'occupe du marketing et de la voix de la marque. Il reçoit les commandes et fait les ventes lui-même." },

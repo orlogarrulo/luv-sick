@@ -1,5 +1,4 @@
-import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   COPY,
   LANGS,
@@ -21,12 +20,13 @@ import { luvCheckCoupon, luvPlace, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
 type View = "splash" | "shop" | "product" | "bag" | "checkout" | "sent";
-type Form = { name: string; phone: string; address: string; city: string };
+type Form = { name: string; phone: string; address: string; city: string; country: "AO" | "PT"; postal: string };
 
 const BAG_KEY = "luvsick-bag";
 const LANG_KEY = "luvsick-lang";
 const MARKET_KEY = "luvsick-market";
 const VISITOR_KEY = "luvsick-visitor";
+const SOUND_KEY = "luvsick-sound";
 
 function stockKey(productId: string, size: string) {
   return `${productId}|${size}`;
@@ -46,6 +46,19 @@ function countOf(lines: Line[]) {
   return lines.reduce((sum, line) => sum + line.qty, 0);
 }
 
+function shapePostal(country: "AO" | "PT", raw: string) {
+  if (country === "PT") {
+    const digits = raw.replace(/\D/g, "").slice(0, 7);
+    return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
+  }
+  return raw.replace(/[^A-Za-z0-9 -]/g, "").slice(0, 10);
+}
+
+function postalOk(country: "AO" | "PT", postal: string) {
+  if (country === "PT") return /^\d{4}-\d{3}$/.test(postal);
+  return postal.trim().length >= 3;
+}
+
 function waLink(market: Market, text: string) {
   return `https://wa.me/${WA[market].n}?text=${encodeURIComponent(text)}`;
 }
@@ -60,7 +73,7 @@ export function LuvSickApp() {
   const [size, setSize] = useState<string>("M");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [waOpen, setWaOpen] = useState(false);
-  const [form, setForm] = useState<Form>({ name: "", phone: "", address: "", city: "" });
+  const [form, setForm] = useState<Form>({ name: "", phone: "", address: "", city: "", country: "PT", postal: "" });
   const [pay, setPay] = useState("");
   const [payError, setPayError] = useState("");
   const [errors, setErrors] = useState<Partial<Form>>({});
@@ -72,16 +85,53 @@ export function LuvSickApp() {
   const [couponNote, setCouponNote] = useState("");
   const [refCode, setRefCode] = useState("");
   const [ready, setReady] = useState(false);
+  const [soundOn, setSoundOn] = useState(false);
+  const sound = useRef<HTMLAudioElement | null>(null);
   const t = COPY[lang];
   const product = productById(productId) ?? PRODUCTS[0];
   const pieces = countOf(lines);
 
   useEffect(() => {
+    const el = new Audio("/luvsick/brand/house.mp3");
+    el.loop = true;
+    el.volume = 0.22;
+    sound.current = el;
+    return () => {
+      el.pause();
+    };
+  }, []);
+
+  function playSound() {
+    const el = sound.current;
+    if (!el) return;
+    el.play()
+      .then(() => {
+        setSoundOn(true);
+        localStorage.setItem(SOUND_KEY, "on");
+      })
+      .catch(() => setSoundOn(false));
+  }
+
+  function toggleSound() {
+    const el = sound.current;
+    if (!el) return;
+    if (soundOn) {
+      el.pause();
+      setSoundOn(false);
+      localStorage.setItem(SOUND_KEY, "off");
+      return;
+    }
+    playSound();
+  }
+
+  useEffect(() => {
     const savedLang = localStorage.getItem(LANG_KEY);
     if (savedLang === "pt" || savedLang === "en" || savedLang === "fr") setLang(savedLang);
     const savedMarket = localStorage.getItem(MARKET_KEY);
-    if (savedMarket === "PT" || savedMarket === "AO") setMarket(savedMarket);
-    else detectMarket(setMarket);
+    if (savedMarket === "PT" || savedMarket === "AO") {
+      setMarket(savedMarket);
+      setForm((current) => ({ ...current, country: savedMarket }));
+    } else detectMarket(setMarket);
     setLines(readBag());
     setReady(true);
     luvStock()
@@ -94,8 +144,6 @@ export function LuvSickApp() {
         setStockKnown(true);
       })
       .catch(() => setStockKnown(false));
-    const timer = window.setTimeout(() => setView((current) => (current === "splash" ? "shop" : current)), 2000);
-    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -135,6 +183,7 @@ export function LuvSickApp() {
   function chooseMarket(next: Market) {
     setMarket(next);
     setPay("");
+    setForm((current) => ({ ...current, country: next, postal: shapePostal(next, current.postal) }));
     localStorage.setItem(MARKET_KEY, next);
   }
 
@@ -198,6 +247,8 @@ export function LuvSickApp() {
       `${t.phone}: ${form.phone.trim()}`,
       `${t.address}: ${form.address.trim()}`,
       `${t.city}: ${form.city.trim()}`,
+      `${t.country}: ${form.country === "AO" ? "Angola" : "Portugal"}`,
+      `${t.postal}: ${form.postal.trim()}`,
       `${t.pay}: ${PAY[market].find((item) => item.id === pay)?.label ?? ""}`,
       "",
       rows,
@@ -213,9 +264,10 @@ export function LuvSickApp() {
   async function submitOrder(event: FormEvent) {
     event.preventDefault();
     const next: Partial<Form> = {};
-    (Object.keys(form) as (keyof Form)[]).forEach((key) => {
+    (["name", "phone", "address", "city"] as const).forEach((key) => {
       if (!form[key].trim()) next[key] = t.required;
     });
+    if (!postalOk(form.country, form.postal)) next.postal = t.postalBad;
     setErrors(next);
     const known = PAY[market].some((item) => item.id === pay);
     setPayError(known ? "" : t.pickPay);
@@ -227,13 +279,15 @@ export function LuvSickApp() {
         phone: form.phone,
         address: form.address,
         city: form.city,
+        country: form.country,
+        postal: form.postal,
         market,
         pay,
         coupon: couponPercent ? coupon : "",
       },
     });
     if (!placed.ok) {
-      setOrderError(placed.error === "coupon" ? t.couponBad : t.noStock);
+      setOrderError(placed.error === "coupon" ? t.couponBad : placed.error === "form" ? t.postalBad : t.noStock);
       const rows = await luvStock();
       const nextStock: Record<string, number> = {};
       rows.forEach((row) => {
@@ -251,14 +305,15 @@ export function LuvSickApp() {
   return (
     <div className="min-h-dvh bg-black text-white">
       {view === "splash" ? (
-        <button
-          type="button"
-          onClick={() => setView("shop")}
-          className="flex min-h-dvh w-full flex-col items-center justify-center bg-black px-6"
-        >
-          <img src="/luvsick/brand/logo-original.jpg" alt="Luv Sick" className="max-h-[62vh] w-full max-w-md object-contain" />
-          <span className="mt-6 text-sm font-bold tracking-[0.2em] uppercase">{t.enter}</span>
-        </button>
+        <section className="flex min-h-dvh w-full flex-col items-center justify-center bg-black px-6">
+          <img src="/luvsick/brand/logo-original.jpg" alt="Luv Sick" className="h-[min(70vh,56rem)] w-auto max-w-[96vw] object-contain" />
+          <button type="button" onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }} className="mt-8 bg-white px-8 py-3 text-sm font-bold tracking-[0.2em] text-black uppercase">
+            {t.enter}
+          </button>
+          <button type="button" onClick={toggleSound} className="mt-4 text-xs tracking-[0.2em] text-white/80 uppercase" aria-pressed={soundOn}>
+            {soundOn ? t.mute : t.sound}
+          </button>
+        </section>
       ) : (
         <>
           <header className="sticky top-0 z-20 flex items-center gap-2 bg-black px-3 py-3">
@@ -318,6 +373,9 @@ export function LuvSickApp() {
                 </div>
               ) : null}
             </div>
+            <button type="button" onClick={toggleSound} className="grid size-11 place-items-center text-xs tracking-wide" aria-pressed={soundOn} aria-label={soundOn ? t.mute : t.sound}>
+              {soundOn ? "♪" : "♩"}
+            </button>
             <button type="button" onClick={() => setView("bag")} className="relative grid size-11 place-items-center" aria-label={`${t.bag}${pieces ? ` ${pieces}` : ""}`}>
               <BagIcon />
               {pieces > 0 ? <span className="absolute top-0 right-0 grid min-w-5 place-items-center rounded-full bg-white px-1 text-[10px] font-bold text-black">{pieces}</span> : null}
@@ -355,6 +413,29 @@ export function LuvSickApp() {
                   {errors[key] ? <span className="font-normal text-white/70">{errors[key]}</span> : null}
                 </label>
               ))}
+              <label className="grid gap-1 text-sm font-bold">
+                {t.country}
+                <select
+                  value={form.country}
+                  onChange={(event) => chooseMarket(event.target.value === "AO" ? "AO" : "PT")}
+                  className="border border-white bg-black px-3 py-3 font-normal text-white"
+                >
+                  <option value="AO">Angola</option>
+                  <option value="PT">Portugal</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm font-bold">
+                {t.postal}
+                <input
+                  value={form.postal}
+                  inputMode={form.country === "PT" ? "numeric" : "text"}
+                  autoComplete="postal-code"
+                  placeholder={form.country === "PT" ? "0000-000" : ""}
+                  onChange={(event) => setForm({ ...form, postal: shapePostal(form.country, event.target.value) })}
+                  className="border border-white bg-black px-3 py-3 font-normal text-white"
+                />
+                {errors.postal ? <span className="font-normal text-white/70">{errors.postal}</span> : null}
+              </label>
               <Totals lang={lang} market={market} priced={priced} />
               <label className="grid gap-1 text-sm font-bold">
                 {t.coupon}
@@ -391,7 +472,7 @@ export function LuvSickApp() {
               <div className="grid gap-3 bg-white p-4 text-black">
                 <p className="font-bold">{form.name.trim()}</p>
                 <p className="text-sm">{form.phone.trim()}</p>
-                <p className="text-sm">{form.address.trim()}, {form.city.trim()}</p>
+                <p className="text-sm">{form.address.trim()}, {form.postal.trim()} {form.city.trim()}, {form.country === "AO" ? "Angola" : "Portugal"}</p>
                 <ul className="grid gap-2 border-t border-black/10 pt-3">
                   {lines.map((line) => {
                     const item = productById(line.productId);
@@ -429,7 +510,7 @@ export function LuvSickApp() {
           ) : null}
 
           {view === "shop" ? <Faq lang={lang} open={openFaq} onToggle={(index) => setOpenFaq((current) => (current === index ? null : index))} /> : null}
-          {view === "shop" ? <p className="px-4 pb-10 text-center text-xs"><Link to="/gestao" className="text-white/60 underline">{t.manage}</Link></p> : null}
+          <p className="px-4 pb-8 text-center text-xs text-white/50">© LUV SICK · Since 2025</p>
         </>
       )}
     </div>
@@ -609,6 +690,29 @@ function Story({ lang }: { lang: Lang }) {
   );
 }
 
+function phoneBits(code: "AO" | "PT") {
+  const number = WA[code].n;
+  const shown = code === "AO"
+    ? `+244 ${number.slice(3, 6)} ${number.slice(6, 9)} ${number.slice(9)}`
+    : `+351 ${number.slice(3, 6)} ${number.slice(6, 9)} ${number.slice(9)}`;
+  return (
+    <>
+      <a href={`tel:+${number}`} className="underline">{shown}</a>
+      {" ("}
+      <a href={`https://wa.me/${number}`} className="underline">WhatsApp</a>
+      {")"}
+    </>
+  );
+}
+
+function contactLine(lang: Lang) {
+  const ao = phoneBits("AO");
+  const pt = phoneBits("PT");
+  if (lang === "en") return <>Alessandro Arrulo and Kelyane both answer. In Angola, call or message {ao}. In Portugal, {pt}.</>;
+  if (lang === "fr") return <>Alessandro Arrulo et Kelyane répondent tous les deux. En Angola, appelle ou écris au {ao}. Au Portugal, au {pt}.</>;
+  return <>Alessandro Arrulo e Kelyane atendem os dois. Em Angola, liga ou escreve para {ao}. Em Portugal, para {pt}.</>;
+}
+
 function Faq({ lang, open, onToggle }: { lang: Lang; open: number | null; onToggle: (index: number) => void }) {
   const t = COPY[lang];
   return (
@@ -626,6 +730,13 @@ function Faq({ lang, open, onToggle }: { lang: Lang; open: number | null; onTogg
           </div>
         );
       })}
+      <div className="border-t border-white/30">
+        <button type="button" aria-expanded={open === -1} onClick={() => onToggle(-1)} className="flex w-full items-center justify-between gap-3 py-3 text-left font-bold">
+          {t.ask}
+          <span aria-hidden className={`text-[#f3c1d4] ${open === -1 ? "rotate-180" : ""}`}>⌄</span>
+        </button>
+        {open === -1 ? <p className="pb-3 text-white/85">{contactLine(lang)}</p> : null}
+      </div>
     </section>
   );
 }

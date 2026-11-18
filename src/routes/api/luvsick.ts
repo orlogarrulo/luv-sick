@@ -39,6 +39,8 @@ export const Route = createFileRoute("/api/luvsick")({
               phone: String(body.phone ?? ""),
               address: String(body.address ?? ""),
               city: String(body.city ?? ""),
+              country: String(body.country ?? ""),
+              postal: String(body.postal ?? ""),
               market: String(body.market ?? "PT"),
               pay: String(body.pay ?? ""),
               coupon: String(body.coupon ?? ""),

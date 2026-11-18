@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PRODUCTS, SIZES } from "@/lib/luvsick";
-import { luvDesk, luvSaveCoupon, luvSetStock } from "@/server/fns";
+import { luvAckOrder, luvDesk, luvSaveCoupon, luvSetStock } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number };
-type Order = { id: string; ref: string; name: string; phone: string; city: string; pay: string; totalLabel: string; coupon?: string };
+type Order = { id: string; ref: string; name: string; phone: string; city: string; country?: string; postal?: string; pay: string; totalLabel: string; coupon?: string; seen?: boolean };
 type Visits = { total: number; countries: { country: string; n: number }[]; cities: { country: string; city: string; n: number }[] };
 type Coupon = { code: string; percent: number; active: boolean };
 
@@ -22,6 +22,9 @@ export function LuvSickDesk() {
   const [coupon, setCoupon] = useState("");
   const [percent, setPercent] = useState("10");
   const [ready, setReady] = useState(false);
+  const [notice, setNotice] = useState("");
+  const told = useRef(new Set<string>());
+  const unseen = orders.filter((order) => !order.seen);
 
   async function load(nextCode: string) {
     const res = await luvDesk({ data: { code: nextCode } });
@@ -38,6 +41,47 @@ export function LuvSickDesk() {
     setCoupons(res.coupons);
     setError("");
     setReady(true);
+  }
+
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setInterval(() => {
+      void load(code);
+    }, 20000);
+    return () => window.clearInterval(timer);
+  }, [ready, code]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const fresh = unseen.filter((order) => !told.current.has(order.id));
+    if (!fresh.length) return;
+    fresh.forEach((order) => told.current.add(order.id));
+    document.title = `(${unseen.length}) Gestão`;
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      fresh.forEach((order) => {
+        new Notification("Luv Sick · nova compra", { body: `${order.ref} · ${order.name} · ${order.totalLabel}` });
+      });
+    }
+  }, [ready, unseen]);
+
+  useEffect(() => {
+    if (!ready) return;
+    document.title = unseen.length ? `(${unseen.length}) Gestão` : "Gestão";
+  }, [ready, unseen.length]);
+
+  async function ack(id: string) {
+    const res = await luvAckOrder({ data: { code, id } });
+    if (!res.ok) return;
+    setOrders((current) => current.map((order) => (order.id === id ? { ...order, seen: true } : order)));
+  }
+
+  async function allowNotices() {
+    if (typeof Notification === "undefined") {
+      setNotice("Este browser não mostra avisos fora da página.");
+      return;
+    }
+    const result = await Notification.requestPermission();
+    setNotice(result === "granted" ? "Avisos ligados neste aparelho." : "Os avisos ficam só dentro da gestão.");
   }
 
   async function saveQty(row: Stock) {
@@ -89,10 +133,23 @@ export function LuvSickDesk() {
         <div className="flex flex-wrap gap-2">
           {(["stock", "orders", "visits", "coupons"] as const).map((item) => (
             <button key={item} type="button" onClick={() => setTab(item)} className={`px-3 py-2 text-sm font-bold ${tab === item ? "bg-white text-black" : "ring-1 ring-white"}`}>
-              {item === "stock" ? "Stock" : item === "orders" ? "Encomendas" : item === "visits" ? "Visitas" : "Cupões"}
+              {item === "stock" ? "Stock" : item === "orders" ? `Encomendas${unseen.length ? ` (${unseen.length})` : ""}` : item === "visits" ? "Visitas" : "Cupões"}
             </button>
           ))}
+          <button type="button" onClick={allowNotices} className="px-3 py-2 text-sm font-bold ring-1 ring-white">Avisos</button>
         </div>
+        {unseen.length ? (
+          <section className="grid gap-2 bg-white p-3 text-black">
+            <p className="font-bold">Nova compra</p>
+            {unseen.map((order) => (
+              <div key={order.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span>{order.ref} · {order.name} · {order.phone} · {order.totalLabel}</span>
+                <button type="button" onClick={() => ack(order.id)} className="bg-black px-3 py-2 font-bold text-white">Já vi</button>
+              </div>
+            ))}
+          </section>
+        ) : null}
+        {notice ? <p className="text-sm text-white/70">{notice}</p> : null}
         {error ? <p className="text-sm text-white/70">{error}</p> : null}
         {tab === "stock" ? (
           <div className="grid gap-4">
@@ -126,7 +183,7 @@ export function LuvSickDesk() {
             {orders.map((order) => (
               <li key={order.id} className="bg-white p-3 text-sm text-black">
                 <p className="font-bold">{order.ref} · {order.totalLabel}</p>
-                <p>{order.name} · {order.phone} · {order.city}</p>
+                <p>{order.name} · {order.phone} · {order.postal} {order.city} · {order.country}</p>
                 <p>{order.pay}{order.coupon ? ` · ${order.coupon}` : ""}</p>
               </li>
             ))}

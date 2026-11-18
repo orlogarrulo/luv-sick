@@ -347,6 +347,8 @@ export const luvPlace = createServerFn({ method: "POST" })
       phone: string;
       address: string;
       city: string;
+      country: string;
+      postal: string;
       market: string;
       pay: string;
       coupon: string;
@@ -357,6 +359,10 @@ export const luvPlace = createServerFn({ method: "POST" })
 export const luvDesk = createServerFn({ method: "POST" })
   .validator((data: { code: string }) => data)
   .handler(async ({ data }) => (await luvApi()).luvDesk(data.code));
+
+export const luvAckOrder = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvAckOrder(data.code, data.id));
 
 export const luvSetStock = createServerFn({ method: "POST" })
   .validator((data: { code: string; productId: string; size: string; qty: number }) => data)
