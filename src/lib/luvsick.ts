@@ -1,0 +1,377 @@
+export type Lang = "pt" | "en" | "fr";
+export type Market = "PT" | "AO";
+
+export const LANGS: Lang[] = ["pt", "en", "fr"];
+export const SIZES = ["XS", "S", "M", "L", "XL"] as const;
+export const SHOP_EMAIL = "";
+const UNIT_KZ = 1350;
+
+export type Product = {
+  id: string;
+  priceEur: number;
+  priceKz: number;
+  images: [string, string];
+  name: Record<Lang, string>;
+  blurb: Record<Lang, string>;
+  alt: Record<Lang, [string, string]>;
+};
+
+export const PRODUCTS: Product[] = [
+  {
+    id: "long-sleeve",
+    priceEur: 70,
+    priceKz: 100000,
+    images: ["/luvsick/products/long-sleeve-1.jpg", "/luvsick/products/long-sleeve-2.jpg"],
+    name: { pt: "Manga comprida", en: "Long sleeve", fr: "Manches longues" },
+    blurb: {
+      pt: "Long sleeve Luv Sick com gráfico de anjo na frente e lettering nas mangas.",
+      en: "Luv Sick long sleeve with the angel graphic on the front and lettering on the sleeves.",
+      fr: "Manches longues Luv Sick, graphique d'ange devant et lettrage sur les manches.",
+    },
+    alt: {
+      pt: ["Frente da manga comprida Luv Sick, fundo branco de estúdio", "Costas da manga comprida Luv Sick, fundo branco de estúdio"],
+      en: ["Front of the Luv Sick long sleeve, white studio background", "Back of the Luv Sick long sleeve, white studio background"],
+      fr: ["Face des manches longues Luv Sick, fond blanc de studio", "Dos des manches longues Luv Sick, fond blanc de studio"],
+    },
+  },
+  {
+    id: "tracksuit-black",
+    priceEur: 120,
+    priceKz: 160000,
+    images: ["/luvsick/products/tracksuit-black-1.jpg", "/luvsick/products/tracksuit-black-2.jpg"],
+    name: { pt: "Fato de treino preto", en: "Black tracksuit", fr: "Survêtement noir" },
+    blurb: {
+      pt: "Fato de treino preto Luv Sick, conjunto completo (hoodie e calças) com o coração da marca.",
+      en: "Black Luv Sick tracksuit, the full set (hoodie and trousers) with the brand heart.",
+      fr: "Survêtement noir Luv Sick, ensemble complet (hoodie et pantalon) avec le cœur de la marque.",
+    },
+    alt: {
+      pt: ["Frente do fato de treino preto Luv Sick, fundo branco de estúdio", "Costas do fato de treino preto Luv Sick, fundo branco de estúdio"],
+      en: ["Front of the black Luv Sick tracksuit, white studio background", "Back of the black Luv Sick tracksuit, white studio background"],
+      fr: ["Face du survêtement noir Luv Sick, fond blanc de studio", "Dos du survêtement noir Luv Sick, fond blanc de studio"],
+    },
+  },
+  {
+    id: "tracksuit-brown",
+    priceEur: 120,
+    priceKz: 160000,
+    images: ["/luvsick/products/tracksuit-brown-1.jpg", "/luvsick/products/tracksuit-brown-2.jpg"],
+    name: { pt: "Fato de treino castanho", en: "Brown tracksuit", fr: "Survêtement marron" },
+    blurb: {
+      pt: "Fato de treino castanho Luv Sick, conjunto completo (hoodie e calças) com o coração da marca.",
+      en: "Brown Luv Sick tracksuit, the full set (hoodie and trousers) with the brand heart.",
+      fr: "Survêtement marron Luv Sick, ensemble complet (hoodie et pantalon) avec le cœur de la marque.",
+    },
+    alt: {
+      pt: ["Frente do fato de treino castanho Luv Sick, fundo branco de estúdio", "Costas do fato de treino castanho Luv Sick, fundo branco de estúdio"],
+      en: ["Front of the brown Luv Sick tracksuit, white studio background", "Back of the brown Luv Sick tracksuit, white studio background"],
+      fr: ["Face du survêtement marron Luv Sick, fond blanc de studio", "Dos du survêtement marron Luv Sick, fond blanc de studio"],
+    },
+  },
+];
+
+export function productById(id: string) {
+  return PRODUCTS.find((item) => item.id === id) ?? null;
+}
+
+export function kzAmount(product: Product) {
+  if (Number.isFinite(product.priceKz)) return product.priceKz;
+  return Math.round((product.priceEur * UNIT_KZ) / 1000) * 1000;
+}
+
+export function formatAmount(amount: number, market: Market) {
+  if (market === "AO") return `${String(amount).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} Kz`;
+  return `${amount} €`;
+}
+
+export function quote(lines: { productId: string; qty: number }[], market: Market, couponPercent = 0) {
+  let sub = 0;
+  let tracksuit = 0;
+  let tracksuitQty = 0;
+  for (const line of lines) {
+    const product = productById(line.productId);
+    if (!product || line.qty < 1) continue;
+    const row = (market === "AO" ? kzAmount(product) : product.priceEur) * line.qty;
+    sub += row;
+    if (product.id.startsWith("tracksuit-")) {
+      tracksuit += row;
+      tracksuitQty += line.qty;
+    }
+  }
+  const tracksuitOff = tracksuitQty >= 2 ? Math.round(tracksuit * 0.1) : 0;
+  const percent = Math.min(90, Math.max(0, Math.round(couponPercent)));
+  const couponOff = percent ? Math.round(((sub - tracksuitOff) * percent) / 100) : 0;
+  return { sub, tracksuitOff, couponOff, total: Math.max(0, sub - tracksuitOff - couponOff), tracksuitDeal: tracksuitQty >= 2 };
+}
+
+export function formatMoney(product: Product, market: Market, qty = 1) {
+  if (market === "AO") {
+    const n = kzAmount(product) * qty;
+    return `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} Kz`;
+  }
+  return `${product.priceEur * qty} €`;
+}
+
+export const PAY: Record<Market, { id: string; label: string }[]> = {
+  AO: [
+    { id: "multicaixa", label: "Multicaixa Express" },
+    { id: "unitel", label: "Unitel Money" },
+  ],
+  PT: [{ id: "mbway", label: "MB WAY" }],
+};
+
+export const WA = {
+  AO: { n: "244935523012", label: "Angola" },
+  PT: { n: "351938970211", label: "Portugal" },
+} as const;
+
+type Dict = {
+  enter: string;
+  skip: string;
+  shop: string;
+  bag: string;
+  bagEmpty: string;
+  close: string;
+  front: string;
+  back: string;
+  size: string;
+  add: string;
+  added: string;
+  qty: string;
+  remove: string;
+  total: string;
+  checkout: string;
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  send: string;
+  required: string;
+  pay: string;
+  pickPay: string;
+  soldOut: string;
+  left: string;
+  noStock: string;
+  manage: string;
+  coupon: string;
+  apply: string;
+  couponOk: string;
+  couponBad: string;
+  tracksuitDeal: string;
+  tracksuitSoon: string;
+  subtotal: string;
+  successTitle: string;
+  sentNote: string;
+  itemsLabel: string;
+  ref: string;
+  thanks: string;
+  whatsapp: string;
+  otherNumber: string;
+  continueShop: string;
+  faqTitle: string;
+  pieces: string;
+  onePiece: string;
+  manyPieces: string;
+  langName: string;
+  marketName: string;
+  storyTitle: string;
+  storyLead: string;
+  founders: { name: string; role: string; text: string }[];
+  orderLead: string;
+  faqs: { q: string; a: string }[];
+};
+
+export const COPY: Record<Lang, Dict> = {
+  pt: {
+    enter: "Entrar",
+    skip: "Saltar",
+    shop: "Loja",
+    bag: "Saco",
+    bagEmpty: "O saco está vazio.",
+    close: "Fechar",
+    front: "Frente",
+    back: "Costas",
+    size: "Tamanho",
+    add: "Juntar ao saco",
+    added: "No saco",
+    qty: "Quantidade",
+    remove: "Tirar",
+    total: "Total",
+    checkout: "Encomendar",
+    name: "Nome",
+    phone: "Telefone",
+    address: "Morada",
+    city: "Cidade / país",
+    send: "Enviar encomenda",
+    required: "Preenche este campo.",
+    pay: "Pagamento",
+    pickPay: "Escolhe como queres pagar.",
+    soldOut: "Esgotado",
+    left: "Restam {n}",
+    noStock: "Este tamanho já não tem stock.",
+    manage: "Gestão",
+    coupon: "Cupão",
+    apply: "Aplicar",
+    couponOk: "Cupão aplicado: {n}%",
+    couponBad: "Este cupão não existe.",
+    tracksuitDeal: "2 fatos de treino: −10%",
+    tracksuitSoon: "Mais um fato de treino e o −10% entra sozinho.",
+    subtotal: "Subtotal",
+    successTitle: "Encomenda registada",
+    sentNote: "Ficas nesta página. A encomenda ainda não foi enviada à loja: o WhatsApp abre a mensagem já escrita, com a referência.",
+    itemsLabel: "Artigos",
+    ref: "Referência",
+    thanks: "A encomenda está escrita. Envia-a pelo WhatsApp para a acompanharmos.",
+    whatsapp: "WhatsApp",
+    otherNumber: "O outro número",
+    continueShop: "Voltar à loja",
+    faqTitle: "Perguntas",
+    pieces: "artigos",
+    onePiece: "1 artigo",
+    manyPieces: "artigos",
+    langName: "Idioma",
+    marketName: "País",
+    storyTitle: "Quem faz a Luv Sick",
+    storyLead: "Destes dois jovens nasceu a marca. Os dois têm o prazer de receber e fazer as vendas eles mesmos. É um pormenor da casa.",
+    founders: [
+      { name: "Alessandro Arrulo", role: "18 anos · design", text: "Trata do desenho: o corte, o gráfico e o detalhe que vês na peça. Recebe as encomendas e faz as vendas ele mesmo." },
+      { name: "Kelyane", role: "17 anos · marketing", text: "Trata do marketing e da voz da marca. Recebe as encomendas e faz as vendas ele mesmo." },
+    ],
+    orderLead: "Encomenda enviada pelo site Luv Sick. Fico a aguardar as instruções de pagamento.",
+    faqs: [
+      { q: "Como encomendo?", a: "Escolhe a peça e o tamanho, junta ao saco e segue os passos. No fim envias a encomenda pelo WhatsApp ou por email, já escrita, com uma referência para a acompanhares." },
+      { q: "Que tamanho escolho?", a: "Há XS, S, M, L e XL em todas as peças. As peças vestem largas nas fotografias. Se estiveres entre dois tamanhos, fala connosco por WhatsApp antes de confirmares." },
+      { q: "Como pago?", a: "Em Angola: Multicaixa Express ou Unitel Money. Em Portugal: MB WAY. Não há cartão bancário. O site nunca pede passwords, PINs nem dados de cartão. A encomenda só fica paga depois de verificarmos o pagamento." },
+      { q: "Como recebo a encomenda?", a: "Dás-nos a morada ao encomendar. Se a entrega for a combinar, confirmamos o custo contigo antes de pagares." },
+      { q: "Posso comprar só uma peça?", a: "Sim. Podes encomendar só a manga comprida, só o fato de treino preto ou só o fato de treino castanho — não precisas de levar tudo. Cada fato de treino é o conjunto completo (hoodie e calças)." },
+    ],
+  },
+  en: {
+    enter: "Enter",
+    skip: "Skip",
+    shop: "Shop",
+    bag: "Bag",
+    bagEmpty: "The bag is empty.",
+    close: "Close",
+    front: "Front",
+    back: "Back",
+    size: "Size",
+    add: "Add to bag",
+    added: "In the bag",
+    qty: "Quantity",
+    remove: "Remove",
+    total: "Total",
+    checkout: "Checkout",
+    name: "Name",
+    phone: "Phone",
+    address: "Address",
+    city: "City / country",
+    send: "Send order",
+    required: "Fill in this field.",
+    pay: "Payment",
+    pickPay: "Choose how you want to pay.",
+    soldOut: "Sold out",
+    left: "{n} left",
+    noStock: "This size is out of stock.",
+    manage: "Desk",
+    coupon: "Coupon",
+    apply: "Apply",
+    couponOk: "Coupon applied: {n}%",
+    couponBad: "This coupon does not exist.",
+    tracksuitDeal: "2 tracksuits: −10%",
+    tracksuitSoon: "One more tracksuit and the −10% applies on its own.",
+    subtotal: "Subtotal",
+    successTitle: "Order registered",
+    sentNote: "You stay on this page. The order has not reached the shop yet: WhatsApp opens the message already written, with the reference.",
+    itemsLabel: "Items",
+    ref: "Reference",
+    thanks: "The order is written. Send it on WhatsApp so we can follow it.",
+    whatsapp: "WhatsApp",
+    otherNumber: "The other number",
+    continueShop: "Back to the shop",
+    faqTitle: "Questions",
+    pieces: "items",
+    onePiece: "1 item",
+    manyPieces: "items",
+    langName: "Language",
+    marketName: "Country",
+    storyTitle: "Who makes Luv Sick",
+    storyLead: "The brand started with these two. They both like taking the orders and making the sales themselves. It's a personal touch.",
+    founders: [
+      { name: "Alessandro Arrulo", role: "18 · design", text: "He handles the design: the cut, the graphic and the detail you see on the piece. He takes the orders and makes the sales himself." },
+      { name: "Kelyane", role: "17 · marketing", text: "He handles the marketing and the brand's voice. He takes the orders and makes the sales himself." },
+    ],
+    orderLead: "Order sent from the Luv Sick site. I'll wait for the payment instructions.",
+    faqs: [
+      { q: "How do I order?", a: "Pick the piece and the size, add it to the bag and follow the steps. At the end you send the order on WhatsApp or by email, already written, with a reference so you can follow it." },
+      { q: "Which size?", a: "Every piece comes in XS, S, M, L and XL. They look loose in the photos. If you are between two sizes, message us on WhatsApp before you confirm." },
+      { q: "How do I pay?", a: "In Angola: Multicaixa Express or Unitel Money. In Portugal: MB WAY. There is no bank card. The site never asks for passwords, PINs or card details. The order is only paid once we have checked the payment." },
+      { q: "How do I receive it?", a: "You give us the address when you order. If delivery is to be arranged, we confirm the cost with you before you pay." },
+      { q: "Can I buy just one piece?", a: "Yes. You can order only the long sleeve, only the black tracksuit or only the brown tracksuit — you don't have to take everything. Each tracksuit is the full set (hoodie and trousers)." },
+    ],
+  },
+  fr: {
+    enter: "Entrer",
+    skip: "Passer",
+    shop: "Boutique",
+    bag: "Sac",
+    bagEmpty: "Le sac est vide.",
+    close: "Fermer",
+    front: "Face",
+    back: "Dos",
+    size: "Taille",
+    add: "Ajouter au sac",
+    added: "Dans le sac",
+    qty: "Quantité",
+    remove: "Retirer",
+    total: "Total",
+    checkout: "Commander",
+    name: "Nom",
+    phone: "Téléphone",
+    address: "Adresse",
+    city: "Ville / pays",
+    send: "Envoyer la commande",
+    required: "Remplis ce champ.",
+    pay: "Paiement",
+    pickPay: "Choisis comment tu veux payer.",
+    soldOut: "Épuisé",
+    left: "Il en reste {n}",
+    noStock: "Cette taille n'a plus de stock.",
+    manage: "Gestion",
+    coupon: "Coupon",
+    apply: "Appliquer",
+    couponOk: "Coupon appliqué : {n} %",
+    couponBad: "Ce coupon n'existe pas.",
+    tracksuitDeal: "2 survêtements : −10 %",
+    tracksuitSoon: "Un survêtement de plus et les −10 % s'appliquent tout seuls.",
+    subtotal: "Sous-total",
+    successTitle: "Commande enregistrée",
+    sentNote: "Tu restes sur cette page. La commande n'est pas encore partie à la boutique : WhatsApp ouvre le message déjà rédigé, avec la référence.",
+    itemsLabel: "Articles",
+    ref: "Référence",
+    thanks: "La commande est rédigée. Envoie-la par WhatsApp pour qu'on la suive.",
+    whatsapp: "WhatsApp",
+    otherNumber: "L'autre numéro",
+    continueShop: "Retour à la boutique",
+    faqTitle: "Questions",
+    pieces: "articles",
+    onePiece: "1 article",
+    manyPieces: "articles",
+    langName: "Langue",
+    marketName: "Pays",
+    storyTitle: "Qui fait Luv Sick",
+    storyLead: "La marque est née de ces deux jeunes. Tous les deux aiment recevoir les commandes et faire les ventes eux-mêmes. C'est un détail de la maison.",
+    founders: [
+      { name: "Alessandro Arrulo", role: "18 ans · design", text: "Il s'occupe du dessin : la coupe, le graphique et le détail que tu vois sur la pièce. Il reçoit les commandes et fait les ventes lui-même." },
+      { name: "Kelyane", role: "17 ans · marketing", text: "Il s'occupe du marketing et de la voix de la marque. Il reçoit les commandes et fait les ventes lui-même." },
+    ],
+    orderLead: "Commande envoyée depuis le site Luv Sick. J'attends les instructions de paiement.",
+    faqs: [
+      { q: "Comment je commande ?", a: "Choisis la pièce et la taille, ajoute-la au sac et suis les étapes. À la fin tu envoies la commande par WhatsApp ou par e-mail, déjà rédigée, avec une référence pour la suivre." },
+      { q: "Quelle taille ?", a: "Il y a XS, S, M, L et XL sur toutes les pièces. Elles tombent larges sur les photos. Si tu hésites entre deux tailles, écris-nous sur WhatsApp avant de confirmer." },
+      { q: "Comment je paie ?", a: "En Angola : Multicaixa Express ou Unitel Money. Au Portugal : MB WAY. Pas de carte bancaire. Le site ne demande jamais de mots de passe, de codes PIN ni de données de carte. La commande n'est payée qu'une fois le paiement vérifié." },
+      { q: "Comment je reçois la commande ?", a: "Tu nous donnes l'adresse en commandant. Si la livraison est à convenir, on confirme le coût avec toi avant que tu paies." },
+      { q: "Je peux acheter une seule pièce ?", a: "Oui. Tu peux commander seulement les manches longues, seulement le survêtement noir ou seulement le survêtement marron — tu n'as pas à tout prendre. Chaque survêtement est l'ensemble complet (hoodie et pantalon)." },
+    ],
+  },
+};

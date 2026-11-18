@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #0B1F4D;
+  --color-muted: #5d6b8a;
+  --color-paper: #fff8ef;
+  --color-card: #ffffff;
+  --color-line: #d9e0f2;
+  --color-blue: #1E4FD8;
+  --color-blue-soft: #e7edff;
+  --color-green: #0E8A4A;
+  --color-green-soft: #e5f6eb;
+  --color-gold: #FFC700;
+  --color-on-blue: #ffffff;
+  --color-on-gold: #0B1F4D;
+  --color-on-green: #ffffff;
+  --color-danger: #9b2335;
+  --color-danger-soft: #fdecef;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 17px;
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+    line-height: 1.05;
+  }
+  img {
+    max-width: 100%;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-blue);
+    outline-offset: 2px;
+  }
+  .shop-card {
+    animation: shop-rise 0.45s ease both;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .shop-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgb(30 79 216 / 12%);
+  }
+  .shop-card:nth-child(2n) { animation-delay: 0.05s; }
+  .shop-card:nth-child(3n) { animation-delay: 0.1s; }
+}
+
+@keyframes shop-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+html[data-theme="night"] {
+  --color-ink: #f4f7ff;
+  --color-muted: #b7c2de;
+  --color-paper: #070d1c;
+  --color-card: #121a33;
+  --color-line: #2a365c;
+  --color-blue: #1E4FD8;
+  --color-blue-soft: #182448;
+  --color-green: #3dbe78;
+  --color-green-soft: #143222;
+  --color-gold: #FFC700;
+  --color-on-blue: #ffffff;
+  --color-on-gold: #0B1F4D;
+  --color-on-green: #06210f;
+  --color-danger: #ff8b98;
+  --color-danger-soft: #3a1820;
+  color-scheme: dark;
+}
+
+/* Telemóvel: os cartões aparecem logo, sem esperar pela animação de entrada. */
+@media (max-width: 1023px) {
+  .shop-card {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
