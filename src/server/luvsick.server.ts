@@ -24,6 +24,9 @@ export type DeskOrder = {
   coupon: string;
   lines: Need[];
   seen: boolean;
+  paidAt: string;
+  nif: string;
+  receiptNo: string;
 };
 
 function allowed(code: string) {
@@ -156,6 +159,9 @@ function mapOrder(row: Record<string, unknown>): DeskOrder {
     coupon: String(row.coupon ?? ""),
     lines,
     seen: Boolean(row.seen),
+    paidAt: row.paid_at ? (row.paid_at instanceof Date ? row.paid_at.toISOString() : String(row.paid_at)) : "",
+    nif: String(row.nif ?? ""),
+    receiptNo: String(row.receipt_no ?? ""),
   };
 }
 
@@ -182,6 +188,32 @@ export async function luvAckOrder(code: string, id: string) {
   const sql = await ensureStock();
   await sql.query(`update luv_orders set seen = true where id = $1`, [id]);
   return { ok: true as const };
+}
+
+export async function luvIssueReceipt(code: string, id: string, nif: string) {
+  if (!allowed(code)) return { ok: false as const, error: "code" as const };
+  const clean = nif.replace(/\D/g, "");
+  if (nif.trim() && !/^\d{9,14}$/.test(clean)) return { ok: false as const, error: "nif" as const };
+  const sql = await ensureStock();
+  const rows = await sql.query<{ ref: string; receipt_no: string }>(`select ref, receipt_no from luv_orders where id = $1`, [id]);
+  if (!rows.length) return { ok: false as const, error: "missing" as const };
+  const receiptNo = rows[0].receipt_no || `TL-${rows[0].ref.replace(/^LS-/, "")}`;
+  await sql.query(
+    `update luv_orders set paid_at = coalesce(paid_at, now()), nif = $2, receipt_no = $3, seen = true where id = $1`,
+    [id, clean, receiptNo],
+  );
+  return { ok: true as const, ref: rows[0].ref, receiptNo, nif: clean };
+}
+
+export async function luvReceipt(ref: string) {
+  const asked = ref.trim().toUpperCase();
+  if (!/^LS-[A-Z0-9]{4}$/.test(asked)) return { ok: false as const };
+  const sql = await ensureStock();
+  const rows = await sql.query(`select * from luv_orders where ref = $1`, [asked]);
+  if (!rows.length) return { ok: false as const };
+  const order = mapOrder(rows[0]);
+  if (!order.paidAt) return { ok: true as const, paid: false as const, ref: order.ref };
+  return { ok: true as const, paid: true as const, order };
 }
 
 export async function luvSetStock(code: string, productId: string, size: string, qty: number) {

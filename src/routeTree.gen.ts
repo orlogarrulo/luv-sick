@@ -14,6 +14,7 @@ import { Route as ClientesRouteImport } from './routes/clientes'
 import { Route as GestaoRouteImport } from './routes/gestao'
 import { Route as ApiLuvsickRouteImport } from './routes/api/luvsick'
 import { Route as ApiMobileRouteImport } from './routes/api/mobile'
+import { Route as ReciboRefRouteImport } from './routes/recibo.$ref'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const ApiMobileRoute = ApiMobileRouteImport.update({
   path: '/api/mobile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReciboRefRoute = ReciboRefRouteImport.update({
+  id: '/recibo/$ref',
+  path: '/recibo/$ref',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
   '/api/mobile': typeof ApiMobileRoute
+  '/recibo/$ref': typeof ReciboRefRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
   '/api/mobile': typeof ApiMobileRoute
+  '/recibo/$ref': typeof ReciboRefRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,14 +70,33 @@ export interface FileRoutesById {
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
   '/api/mobile': typeof ApiMobileRoute
+  '/recibo/$ref': typeof ReciboRefRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/clientes' | '/gestao' | '/api/luvsick' | '/api/mobile'
+  fullPaths:
+    | '/'
+    | '/clientes'
+    | '/gestao'
+    | '/api/luvsick'
+    | '/api/mobile'
+    | '/recibo/$ref'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/clientes' | '/gestao' | '/api/luvsick' | '/api/mobile'
+  to:
+    | '/'
+    | '/clientes'
+    | '/gestao'
+    | '/api/luvsick'
+    | '/api/mobile'
+    | '/recibo/$ref'
   id:
-    '__root__' | '/' | '/clientes' | '/gestao' | '/api/luvsick' | '/api/mobile'
+    | '__root__'
+    | '/'
+    | '/clientes'
+    | '/gestao'
+    | '/api/luvsick'
+    | '/api/mobile'
+    | '/recibo/$ref'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,6 +105,7 @@ export interface RootRouteChildren {
   GestaoRoute: typeof GestaoRoute
   ApiLuvsickRoute: typeof ApiLuvsickRoute
   ApiMobileRoute: typeof ApiMobileRoute
+  ReciboRefRoute: typeof ReciboRefRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -117,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMobileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recibo/$ref': {
+      id: '/recibo/$ref'
+      path: '/recibo/$ref'
+      fullPath: '/recibo/$ref'
+      preLoaderRoute: typeof ReciboRefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -126,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   GestaoRoute: GestaoRoute,
   ApiLuvsickRoute: ApiLuvsickRoute,
   ApiMobileRoute: ApiMobileRoute,
+  ReciboRefRoute: ReciboRefRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

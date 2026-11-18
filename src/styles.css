@@ -99,6 +99,19 @@ html[data-theme="night"] {
   .shop-card {
     animation: none;
   }
+  p {
+    text-align: justify;
+    text-align-last: start;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+  }
+  h1,
+  h2,
+  h3,
+  .luv-title {
+    text-align: center;
+    text-align-last: center;
+  }
 }
 
 .btn-brown {

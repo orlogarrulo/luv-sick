@@ -364,6 +364,14 @@ export const luvAckOrder = createServerFn({ method: "POST" })
   .validator((data: { code: string; id: string }) => data)
   .handler(async ({ data }) => (await luvApi()).luvAckOrder(data.code, data.id));
 
+export const luvIssueReceipt = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string; nif: string }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvIssueReceipt(data.code, data.id, data.nif));
+
+export const luvReceipt = createServerFn({ method: "POST" })
+  .validator((data: { ref: string }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvReceipt(data.ref));
+
 export const luvSetStock = createServerFn({ method: "POST" })
   .validator((data: { code: string; productId: string; size: string; qty: number }) => data)
   .handler(async ({ data }) => (await luvApi()).luvSetStock(data.code, data.productId, data.size, data.qty));

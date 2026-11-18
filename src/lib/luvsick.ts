@@ -120,6 +120,11 @@ export function quote(lines: { productId: string; qty: number }[], market: Marke
   return { sub, tracksuitOff, couponOff, total: Math.max(0, sub - tracksuitOff - couponOff), tracksuitDeal: tracksuitQty >= 2 };
 }
 
+export function payUnit(product: Product, market: Market, deal: boolean) {
+  const unit = market === "AO" ? kzAmount(product) : product.priceEur;
+  return deal && product.id.startsWith("tracksuit-") ? Math.round(unit * 0.9) : unit;
+}
+
 export function formatMoney(product: Product, market: Market, qty = 1) {
   if (market === "AO") {
     const n = kzAmount(product) * qty;

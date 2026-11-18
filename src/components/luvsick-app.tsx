@@ -10,6 +10,7 @@ import {
   formatAmount,
   formatMoney,
   kzAmount,
+  payUnit,
   productById,
   quote,
   type Lang,
@@ -243,7 +244,9 @@ export function LuvSickApp() {
       .map((line) => {
         const item = productById(line.productId);
         if (!item) return "";
-        return `- ${item.name[lang]} · ${line.size} · ${line.qty} × ${formatMoney(item, market)} = ${formatMoney(item, market, line.qty)}`;
+        const deal = priced.tracksuitDeal && item.id.startsWith("tracksuit-");
+        const each = payUnit(item, market, deal);
+        return `- ${item.name[lang]} · ${line.size} · ${line.qty} × ${formatAmount(each, market)} = ${formatAmount(each * line.qty, market)}${deal ? " (−10%)" : ""}`;
       })
       .filter(Boolean)
       .join("\n");
@@ -418,7 +421,7 @@ export function LuvSickApp() {
                   playsInline
                 />
                 <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-                  <p className="text-[11px] tracking-[0.28em] uppercase">{t.newIn}</p>
+                  <p className="luv-title text-[11px] tracking-[0.28em] uppercase">{t.newIn}</p>
                   <h1 className="mt-2 text-4xl leading-tight font-medium tracking-tight sm:text-6xl">{t.heroTitle}</h1>
                   <button type="button" onClick={() => document.getElementById("loja")?.scrollIntoView({ behavior: "smooth" })} className="btn-brown mt-5 rounded-full px-6 py-3">
                     {t.shop}
@@ -522,10 +525,12 @@ export function LuvSickApp() {
                   {lines.map((line) => {
                     const item = productById(line.productId);
                     if (!item) return null;
+                    const deal = priced.tracksuitDeal && item.id.startsWith("tracksuit-");
+                    const each = payUnit(item, market, deal);
                     return (
                       <li key={`${line.productId}-${line.size}`} className="flex items-center justify-between gap-3 text-sm">
-                        <span>{item.name[lang]} · {line.size} · {line.qty}</span>
-                        <span className="font-bold">{formatMoney(item, market, line.qty)}</span>
+                        <span>{item.name[lang]} · {line.size} · {line.qty}{deal ? " · −10%" : ""}</span>
+                        <span className="font-bold">{formatAmount(each * line.qty, market)}</span>
                       </li>
                     );
                   })}
@@ -534,6 +539,7 @@ export function LuvSickApp() {
                 <p className="text-lg font-bold">{t.total} {totalLabel}</p>
               </div>
               <p className="text-sm text-[#1a1714]/70">{t.sentNote}</p>
+              <a href={`/recibo/${refCode}`} className="text-sm underline">Talão de compra</a>
               <a href={waLink(market, orderText(refCode))} target="_blank" rel="noreferrer" className="btn-brown rounded-full px-4 py-3 text-center">
                 {t.whatsapp} · {WA[market].label}
               </a>
@@ -591,7 +597,7 @@ function Totals({ lang, market, priced }: { lang: Lang; market: Market; priced: 
 
 const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; la: Record<Lang, string>; lb: Record<Lang, string> }> = {
   "tracksuit-brown": {
-    stills: ["/luvsick/products/tracksuit-brown-1.jpg", "/luvsick/products/tracksuit-brown-2.jpg"],
+    video: "/luvsick/spin/brown.mp4",
     a: "/luvsick/details/brown-hoodie.jpg",
     b: "/luvsick/details/brown-pants.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
@@ -605,7 +611,7 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
     lb: { pt: "Manga", en: "Sleeve", fr: "Manche" },
   },
   "tracksuit-black": {
-    stills: ["/luvsick/products/tracksuit-black-1.jpg", "/luvsick/products/tracksuit-black-2.jpg"],
+    video: "/luvsick/spin/black.mp4",
     a: "/luvsick/details/black-hoodie.jpg",
     b: "/luvsick/details/black-pants.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
@@ -813,14 +819,16 @@ function BagView({
           if (!item) return null;
           const deal = priced.tracksuitDeal && item.id.startsWith("tracksuit-");
           const unit = market === "AO" ? kzAmount(item) : item.priceEur;
+          const each = payUnit(item, market, deal);
           return (
             <li key={`${line.productId}-${line.size}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-[1.5rem] bg-white p-2 text-black">
               <img src={item.images[0]} alt="" className="size-[72px] object-contain" />
               <span className="grid gap-1">
                 <span className="font-bold">{item.name[lang]}</span>
                 <span className="text-sm">
-                  {line.size} · {deal ? <s>{formatAmount(unit, market)}</s> : null} {formatAmount(deal ? Math.round(unit * 0.9) : unit, market)}
+                  {line.size} · {line.qty} × {deal ? <><s>{formatAmount(unit, market)}</s> {formatAmount(each, market)} · −10%</> : formatAmount(unit, market)}
                 </span>
+                <span className="text-sm font-bold">{formatAmount(each * line.qty, market)}</span>
                 <span className="flex items-center gap-2">
                   <button type="button" aria-label={t.qty} onClick={() => onQty(index, line.qty - 1)} className="size-9 rounded-full bg-black font-bold text-white">−</button>
                   <span className="tabular-nums">{line.qty}</span>
@@ -848,13 +856,13 @@ function Story({ lang }: { lang: Lang }) {
   return (
     <section id="marca" className="mx-auto max-w-3xl px-4 py-16">
       <h2 className="text-[11px] tracking-[0.28em] uppercase">{t.about}</h2>
-      <p className="mt-4 max-w-xl text-3xl leading-tight font-medium sm:text-4xl">{t.storyTitle}</p>
+      <p className="luv-title mt-4 max-w-xl text-3xl leading-tight font-medium sm:text-4xl">{t.storyTitle}</p>
       <p className="mt-4 max-w-xl text-lg leading-snug">{t.storyLead}</p>
       <div className="mt-10 divide-y divide-[#1a1714]/15">
         {t.founders.map((person) => (
           <article key={person.name} className="grid gap-3 py-8 sm:grid-cols-[16rem_1fr] sm:items-baseline sm:gap-10">
             <div>
-              <p className="text-2xl font-medium tracking-tight sm:text-3xl">{person.name}</p>
+              <p className="luv-title text-2xl font-medium tracking-tight sm:text-3xl">{person.name}</p>
               <p className="mt-1 text-[11px] tracking-[0.22em] uppercase">{person.role}</p>
             </div>
             <p className="max-w-md text-sm leading-relaxed">{person.text}</p>

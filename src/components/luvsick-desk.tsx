@@ -1,10 +1,27 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PRODUCTS, SIZES } from "@/lib/luvsick";
-import { luvAckOrder, luvDesk, luvSaveCoupon, luvSetStock } from "@/server/fns";
+import { luvAckOrder, luvDesk, luvIssueReceipt, luvSaveCoupon, luvSetStock } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number };
-type Order = { id: string; ref: string; name: string; phone: string; city: string; country?: string; postal?: string; pay: string; totalLabel: string; coupon?: string; seen?: boolean };
+type Line = { productId: string; size: string; qty: number };
+type Order = {
+  id: string;
+  ref: string;
+  name: string;
+  phone: string;
+  city: string;
+  country?: string;
+  postal?: string;
+  pay: string;
+  totalLabel: string;
+  coupon?: string;
+  seen?: boolean;
+  lines?: Line[];
+  paidAt?: string;
+  nif?: string;
+  receiptNo?: string;
+};
 type Visits = { total: number; countries: { country: string; n: number }[]; cities: { country: string; city: string; n: number }[] };
 type Coupon = { code: string; percent: number; active: boolean };
 
@@ -23,6 +40,7 @@ export function LuvSickDesk() {
   const [percent, setPercent] = useState("10");
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState("");
+  const [nifDraft, setNifDraft] = useState<Record<string, string>>({});
   const told = useRef(new Set<string>());
   const unseen = orders.filter((order) => !order.seen);
 
@@ -89,6 +107,19 @@ export function LuvSickDesk() {
     const res = await luvSetStock({ data: { code, productId: row.productId, size: row.size, qty } });
     if (!res.ok) return;
     setStock((current) => current.map((item) => (item.productId === row.productId && item.size === row.size ? { ...item, qty: res.qty } : item)));
+  }
+
+  async function issue(order: Order) {
+    const nif = nifDraft[order.id] ?? order.nif ?? "";
+    const res = await luvIssueReceipt({ data: { code, id: order.id, nif } });
+    if (!res.ok) {
+      setError(res.error === "nif" ? "O NIF tem de ter entre 9 e 14 números." : "Não foi possível emitir o talão.");
+      return;
+    }
+    setError("");
+    setOrders((current) =>
+      current.map((item) => (item.id === order.id ? { ...item, paidAt: item.paidAt || new Date().toISOString(), nif: res.nif, receiptNo: res.receiptNo, seen: true } : item)),
+    );
   }
 
   async function createCoupon(event: FormEvent) {
@@ -181,10 +212,26 @@ export function LuvSickDesk() {
           <ul className="grid gap-2">
             {orders.length === 0 ? <li>Ainda não há encomendas.</li> : null}
             {orders.map((order) => (
-              <li key={order.id} className="bg-white p-3 text-sm text-black">
+              <li key={order.id} className="grid gap-2 bg-white p-3 text-sm text-black">
                 <p className="font-bold">{order.ref} · {order.totalLabel}</p>
                 <p>{order.name} · {order.phone} · {order.postal} {order.city} · {order.country}</p>
                 <p>{order.pay}{order.coupon ? ` · ${order.coupon}` : ""}</p>
+                <label className="grid gap-1">
+                  NIF
+                  <input
+                    inputMode="numeric"
+                    value={nifDraft[order.id] ?? order.nif ?? ""}
+                    onChange={(event) => setNifDraft({ ...nifDraft, [order.id]: event.target.value })}
+                    placeholder="Opcional"
+                    className="border border-black px-2 py-2"
+                  />
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={() => issue(order)} className="bg-black px-3 py-2 font-bold text-white">
+                    {order.receiptNo ? "Actualizar talão" : "Confirmar pagamento"}
+                  </button>
+                  {order.receiptNo ? <a href={`/recibo/${order.ref}`} className="underline">{order.receiptNo}</a> : null}
+                </div>
               </li>
             ))}
           </ul>
