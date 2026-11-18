@@ -303,87 +303,126 @@ export function LuvSickApp() {
   }
 
   return (
-    <div className="min-h-dvh bg-black text-white">
+    <div className="min-h-dvh bg-[#f4f1ec] text-[#1a1714]">
       {view === "splash" ? (
-        <section className="flex min-h-dvh w-full flex-col items-center justify-center bg-black px-6">
-          <img src="/luvsick/brand/logo-original.jpg" alt="Luv Sick" className="h-[min(70vh,56rem)] w-auto max-w-[96vw] object-contain" />
-          <button type="button" onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }} className="mt-8 bg-white px-8 py-3 text-sm font-bold tracking-[0.2em] text-black uppercase">
-            {t.enter}
-          </button>
-          <button type="button" onClick={toggleSound} className="mt-4 text-xs tracking-[0.2em] text-white/80 uppercase" aria-pressed={soundOn}>
-            {soundOn ? t.mute : t.sound}
-          </button>
+        <section className="relative flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden">
+          <img src="/luvsick/brand/hero.jpg" alt="" className="absolute inset-0 h-full w-full object-cover object-[center_30%]" />
+          <div className="absolute inset-0 bg-[#2a211c]/45" />
+          <div className="relative z-10 flex flex-col items-center px-6">
+            <img src="/luvsick/brand/logo-white.svg" alt="Luv Sick" className="h-44 w-44 object-contain sm:h-56 sm:w-56" />
+            <button type="button" onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }} className="mt-8 rounded-full bg-white px-10 py-3 text-xs font-medium tracking-[0.28em] text-[#1a1714] uppercase">
+              {t.enter}
+            </button>
+          </div>
         </section>
       ) : (
         <>
-          <header className="sticky top-0 z-20 flex items-center gap-2 bg-black px-3 py-3">
-            <button type="button" onClick={() => setView("shop")} className="mr-auto shrink-0" aria-label="Luv Sick">
-              <img src="/luvsick/brand/logo-white.svg" alt="Luv Sick" className="h-11 w-11 object-contain" />
-            </button>
-            <div className="flex rounded-full ring-1 ring-white/40" role="group" aria-label={t.langName}>
-              {LANGS.map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => chooseLang(code)}
-                  aria-pressed={lang === code}
-                  className={`px-2 py-1 text-xs font-bold uppercase ${lang === code ? "bg-white text-black" : "text-white"}`}
-                >
-                  {code}
-                </button>
-              ))}
-            </div>
-            <div className="flex rounded-full ring-1 ring-white/40" role="group" aria-label={t.marketName}>
-              {(["PT", "AO"] as Market[]).map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => chooseMarket(code)}
-                  aria-pressed={market === code}
-                  className={`px-2 py-1 text-xs font-bold ${market === code ? "bg-white text-black" : "text-white"}`}
-                >
-                  {code === "PT" ? "€" : "Kz"}
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                aria-label={t.whatsapp}
-                aria-expanded={waOpen}
-                onClick={() => setWaOpen((open) => !open)}
-                className="grid size-11 place-items-center"
-              >
-                <WaIcon />
+          <header className="sticky top-0 z-20 border-b border-[#e4ddd4] bg-[#f4f1ec]/95 backdrop-blur">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <button type="button" onClick={() => { setView("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="mr-auto shrink-0" aria-label="Luv Sick">
+                <img src="/luvsick/brand/logo-black.svg" alt="Luv Sick" className="h-11 w-11 object-contain" />
               </button>
-              {waOpen ? (
-                <div className="absolute right-0 z-30 mt-1 grid w-44 gap-1 bg-white p-2 text-black">
-                  {(["AO", "PT"] as Market[]).map((code) => (
-                    <a
-                      key={code}
-                      href={`https://wa.me/${WA[code].n}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`px-2 py-2 text-sm font-bold ${code === market ? "bg-black text-white" : ""}`}
-                      onClick={() => setWaOpen(false)}
-                    >
-                      {WA[code].label}
-                    </a>
-                  ))}
-                </div>
-              ) : null}
+              <div className="flex rounded-full ring-1 ring-[#1a1714]/25" role="group" aria-label={t.langName}>
+                {LANGS.map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => chooseLang(code)}
+                    aria-pressed={lang === code}
+                    className={`px-2 py-1 text-xs font-bold uppercase ${lang === code ? "bg-[#1a1714] text-white" : ""}`}
+                  >
+                    {code}
+                  </button>
+                ))}
+              </div>
+              <div className="flex rounded-full ring-1 ring-[#1a1714]/25" role="group" aria-label={t.marketName}>
+                {(["PT", "AO"] as Market[]).map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => chooseMarket(code)}
+                    aria-pressed={market === code}
+                    className={`px-2 py-1 text-xs font-bold ${market === code ? "bg-[#1a1714] text-white" : ""}`}
+                  >
+                    {code === "PT" ? "€" : "Kz"}
+                  </button>
+                ))}
+              </div>
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label={t.whatsapp}
+                  aria-expanded={waOpen}
+                  onClick={() => setWaOpen((open) => !open)}
+                  className="grid size-11 place-items-center"
+                >
+                  <WaIcon />
+                </button>
+                {waOpen ? (
+                  <div className="absolute right-0 z-30 mt-1 grid w-44 gap-1 rounded-2xl border border-[#e4ddd4] bg-white p-2 text-[#1a1714]">
+                    {(["AO", "PT"] as Market[]).map((code) => (
+                      <a
+                        key={code}
+                        href={`https://wa.me/${WA[code].n}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`px-2 py-2 text-sm font-bold ${code === market ? "bg-[#1a1714] text-white" : ""}`}
+                        onClick={() => setWaOpen(false)}
+                      >
+                        {WA[code].label}
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <button type="button" onClick={toggleSound} className="grid size-11 place-items-center" aria-pressed={soundOn} aria-label={soundOn ? t.mute : t.sound}>
+                <SpeakerIcon on={soundOn} />
+              </button>
+              <button type="button" onClick={() => setView("bag")} className="relative grid size-11 place-items-center" aria-label={`${t.bag}${pieces ? ` ${pieces}` : ""}`}>
+                <BagIcon />
+                {pieces > 0 ? <span className="absolute top-0 right-0 grid min-w-5 place-items-center rounded-full bg-[#1a1714] px-1 text-[10px] font-bold text-white">{pieces}</span> : null}
+              </button>
             </div>
-            <button type="button" onClick={toggleSound} className="grid size-11 place-items-center text-xs tracking-wide" aria-pressed={soundOn} aria-label={soundOn ? t.mute : t.sound}>
-              {soundOn ? "♪" : "♩"}
-            </button>
-            <button type="button" onClick={() => setView("bag")} className="relative grid size-11 place-items-center" aria-label={`${t.bag}${pieces ? ` ${pieces}` : ""}`}>
-              <BagIcon />
-              {pieces > 0 ? <span className="absolute top-0 right-0 grid min-w-5 place-items-center rounded-full bg-white px-1 text-[10px] font-bold text-black">{pieces}</span> : null}
-            </button>
+            {view === "shop" ? (
+              <nav className="flex gap-4 overflow-x-auto px-4 pb-2 text-[11px] tracking-[0.18em] uppercase" aria-label={t.shop}>
+                {[
+                  ["inicio", t.home],
+                  ["loja", t.shop],
+                  ["marca", t.about],
+                  ["contacto", t.contact],
+                ].map(([id, label]) => (
+                  <button key={id} type="button" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })} className="shrink-0 py-1">
+                    {label}
+                  </button>
+                ))}
+              </nav>
+            ) : null}
           </header>
 
-          {view === "shop" ? <Catalog market={market} lang={lang} stock={stock} known={stockKnown} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); }} /> : null}
-          {view === "shop" ? <Story lang={lang} /> : null}
+          {view === "shop" ? (
+            <>
+              <section id="inicio" className="relative overflow-hidden">
+                <video
+                  src="/luvsick/brand/hero-walk.mp4"
+                  poster="/luvsick/brand/hero.jpg"
+                  className="h-[78vh] min-h-[28rem] w-full object-cover object-center"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#1c1917]/70 to-transparent px-5 pt-24 pb-8 sm:px-10">
+                  <p className="text-[11px] tracking-[0.28em] text-white uppercase">{t.newIn}</p>
+                  <h1 className="mt-2 max-w-[12ch] text-4xl leading-none font-medium tracking-tight text-white sm:text-5xl">{t.heroTitle}</h1>
+                  <button type="button" onClick={() => document.getElementById("loja")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 rounded-full bg-white px-6 py-3 text-[11px] tracking-[0.22em] text-[#1a1714] uppercase">
+                    {t.shop}
+                  </button>
+                </div>
+              </section>
+              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
+              <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
+            </>
+          ) : null}
           {view === "product" ? (
             <ProductView
               product={product}
@@ -407,10 +446,10 @@ export function LuvSickApp() {
                   <input
                     value={form[key]}
                     onChange={(event) => setForm({ ...form, [key]: event.target.value })}
-                    className="border border-white bg-black px-3 py-3 font-normal text-white"
+                    className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]"
                     autoComplete={key === "name" ? "name" : key === "phone" ? "tel" : "off"}
                   />
-                  {errors[key] ? <span className="font-normal text-white/70">{errors[key]}</span> : null}
+                  {errors[key] ? <span className="font-normal text-[#1a1714]/70">{errors[key]}</span> : null}
                 </label>
               ))}
               <label className="grid gap-1 text-sm font-bold">
@@ -418,7 +457,7 @@ export function LuvSickApp() {
                 <select
                   value={form.country}
                   onChange={(event) => chooseMarket(event.target.value === "AO" ? "AO" : "PT")}
-                  className="border border-white bg-black px-3 py-3 font-normal text-white"
+                  className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]"
                 >
                   <option value="AO">Angola</option>
                   <option value="PT">Portugal</option>
@@ -432,24 +471,24 @@ export function LuvSickApp() {
                   autoComplete="postal-code"
                   placeholder={form.country === "PT" ? "0000-000" : ""}
                   onChange={(event) => setForm({ ...form, postal: shapePostal(form.country, event.target.value) })}
-                  className="border border-white bg-black px-3 py-3 font-normal text-white"
+                  className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]"
                 />
-                {errors.postal ? <span className="font-normal text-white/70">{errors.postal}</span> : null}
+                {errors.postal ? <span className="font-normal text-[#1a1714]/70">{errors.postal}</span> : null}
               </label>
               <Totals lang={lang} market={market} priced={priced} />
               <label className="grid gap-1 text-sm font-bold">
                 {t.coupon}
                 <span className="flex gap-2">
-                  <input value={coupon} onChange={(event) => setCoupon(event.target.value.toUpperCase())} className="min-w-0 flex-1 border border-white bg-black px-3 py-3 font-normal uppercase text-white" />
-                  <button type="button" onClick={applyCoupon} className="bg-white px-4 font-bold text-black">{t.apply}</button>
+                  <input value={coupon} onChange={(event) => setCoupon(event.target.value.toUpperCase())} className="min-w-0 flex-1 rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal uppercase text-[#1a1714]" />
+                  <button type="button" onClick={applyCoupon} className="rounded-full bg-[#1a1714] px-4 font-bold text-white">{t.apply}</button>
                 </span>
-                {couponNote ? <span className="font-normal text-white/70">{couponNote}</span> : null}
+                {couponNote ? <span className="font-normal text-[#1a1714]/70">{couponNote}</span> : null}
               </label>
-              {orderError ? <p className="text-sm text-white/70">{orderError}</p> : null}
+              {orderError ? <p className="text-sm text-[#1a1714]/70">{orderError}</p> : null}
               <fieldset className="grid gap-2">
                 <legend className="text-sm font-bold">{t.pay}</legend>
                 {PAY[market].map((item) => (
-                  <label key={item.id} className={`flex items-center gap-3 border px-3 py-3 ${pay === item.id ? "border-white bg-white text-black" : "border-white/40"}`}>
+                  <label key={item.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${pay === item.id ? "border-[#1a1714] bg-[#1a1714] text-white" : "border-[#1a1714]/25"}`}>
                     <input
                       type="radio"
                       name="pay"
@@ -459,17 +498,17 @@ export function LuvSickApp() {
                     <span className="font-bold">{item.label}</span>
                   </label>
                 ))}
-                {payError ? <span className="text-sm text-white/70">{payError}</span> : null}
+                {payError ? <span className="text-sm text-[#1a1714]/70">{payError}</span> : null}
               </fieldset>
-              <button className="bg-white px-4 py-3 font-bold text-black">{t.send}</button>
+              <button className="rounded-full bg-[#1a1714] px-4 py-3 font-bold text-white">{t.send}</button>
             </form>
           ) : null}
           {view === "sent" ? (
             <section className="mx-auto grid max-w-lg gap-4 px-4 py-8">
-              <p className="text-sm font-bold tracking-[0.18em] uppercase text-white/70">{t.successTitle}</p>
+              <p className="text-sm font-bold tracking-[0.18em] uppercase text-[#1a1714]/70">{t.successTitle}</p>
               <h1 className="text-4xl font-bold">{refCode}</h1>
               <p>{t.thanks}</p>
-              <div className="grid gap-3 bg-white p-4 text-black">
+              <div className="grid gap-3 rounded-[2rem] bg-white p-5 text-black">
                 <p className="font-bold">{form.name.trim()}</p>
                 <p className="text-sm">{form.phone.trim()}</p>
                 <p className="text-sm">{form.address.trim()}, {form.postal.trim()} {form.city.trim()}, {form.country === "AO" ? "Angola" : "Portugal"}</p>
@@ -488,8 +527,8 @@ export function LuvSickApp() {
                 <p className="border-t border-black/10 pt-3 text-sm">{t.pay}: <span className="font-bold">{PAY[market].find((item) => item.id === pay)?.label}</span></p>
                 <p className="text-lg font-bold">{t.total} {totalLabel}</p>
               </div>
-              <p className="text-sm text-white/80">{t.sentNote}</p>
-              <a href={waLink(market, orderText(refCode))} target="_blank" rel="noreferrer" className="bg-white px-4 py-3 text-center font-bold text-black">
+              <p className="text-sm text-[#1a1714]/70">{t.sentNote}</p>
+              <a href={waLink(market, orderText(refCode))} target="_blank" rel="noreferrer" className="rounded-full bg-[#1a1714] px-4 py-3 text-center font-bold text-white">
                 {t.whatsapp} · {WA[market].label}
               </a>
               <a href={waLink(market === "AO" ? "PT" : "AO", orderText(refCode))} target="_blank" rel="noreferrer" className="text-center text-sm underline">
@@ -509,8 +548,9 @@ export function LuvSickApp() {
             </section>
           ) : null}
 
+          {view === "shop" ? <Story lang={lang} /> : null}
           {view === "shop" ? <Faq lang={lang} open={openFaq} onToggle={(index) => setOpenFaq((current) => (current === index ? null : index))} /> : null}
-          <p className="px-4 pb-8 text-center text-xs text-white/50">© LUV SICK · Since 2025</p>
+          <p className="bg-[#1c1917] px-4 py-8 text-center text-xs tracking-[0.16em] text-white/70">© LUV SICK · Since 2025</p>
         </>
       )}
     </div>
@@ -543,17 +583,133 @@ function Totals({ lang, market, priced }: { lang: Lang; market: Market; priced: 
   );
 }
 
+const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; la: Record<Lang, string>; lb: Record<Lang, string> }> = {
+  "tracksuit-brown": {
+    stills: ["/luvsick/products/tracksuit-brown-1.jpg", "/luvsick/products/tracksuit-brown-2.jpg"],
+    a: "/luvsick/details/brown-hoodie.jpg",
+    b: "/luvsick/details/brown-pants.jpg",
+    la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
+    lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
+  },
+  "long-sleeve": {
+    video: "/luvsick/spin/sleeve.mp4",
+    a: "/luvsick/details/sleeve-front.jpg",
+    b: "/luvsick/details/sleeve-arm.jpg",
+    la: { pt: "Frente", en: "Front", fr: "Face" },
+    lb: { pt: "Manga", en: "Sleeve", fr: "Manche" },
+  },
+  "tracksuit-black": {
+    stills: ["/luvsick/products/tracksuit-black-1.jpg", "/luvsick/products/tracksuit-black-2.jpg"],
+    a: "/luvsick/details/black-hoodie.jpg",
+    b: "/luvsick/details/black-pants.jpg",
+    la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
+    lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
+  },
+};
+
+function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void }) {
+  const ids = ["tracksuit-brown", "long-sleeve", "tracksuit-black"];
+  const [index, setIndex] = useState(0);
+  const drag = useRef({ x: 0, moved: false });
+  const id = ids[index];
+  const spin = SPIN[id];
+  const product = productById(id);
+  const line = product?.material[lang].split(".")[0] ?? "";
+  const [turn, setTurn] = useState(0);
+
+  useEffect(() => {
+    setTurn(0);
+    if (spin.video) return;
+    const flip = window.setInterval(() => setTurn((current) => (current === 0 ? 1 : 0)), 2400);
+    const next = window.setTimeout(() => setIndex((current) => (current + 1) % ids.length), 9600);
+    return () => {
+      window.clearInterval(flip);
+      window.clearTimeout(next);
+    };
+  }, [id, spin.video, ids.length]);
+
+  return (
+    <section
+      className="bg-white"
+      onPointerDown={(event) => {
+        drag.current = { x: event.clientX, moved: false };
+      }}
+      onPointerUp={(event) => {
+        const dx = event.clientX - drag.current.x;
+        if (dx > 48) {
+          drag.current.moved = true;
+          setIndex((current) => (current + ids.length - 1) % ids.length);
+        } else if (dx < -48) {
+          drag.current.moved = true;
+          setIndex((current) => (current + 1) % ids.length);
+        }
+      }}
+    >
+      <div className="relative h-[72dvh] w-full bg-white">
+        {spin.video ? (
+          <video
+            key={spin.video}
+            src={spin.video}
+            className="h-full w-full object-contain"
+            autoPlay
+            muted
+            playsInline
+            onEnded={() => setIndex((current) => (current + 1) % ids.length)}
+          />
+        ) : (
+          <img src={spin.stills?.[turn]} alt="" className="h-full w-full object-contain" />
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            if (!drag.current.moved) onOpen(id);
+          }}
+          className="absolute inset-0"
+          aria-label={product?.name[lang] ?? ""}
+        />
+      </div>
+      <div className="flex items-center gap-4 px-4 py-3 sm:px-8">
+        <p className="min-w-0 flex-1 truncate text-left text-[11px] tracking-[0.22em] text-[#1a1714] uppercase">
+          {product?.name[lang]} · {line}
+        </p>
+        <div className="flex shrink-0 gap-2">
+          {ids.map((item, dot) => (
+            <button
+              key={item}
+              type="button"
+              aria-label={`${dot + 1}`}
+              onClick={() => setIndex(dot)}
+              className={`size-2 rounded-full ${dot === index ? "bg-[#1a1714]" : "bg-[#1a1714]/25"}`}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2">
+        {([{ src: spin.a, label: spin.la[lang] }, { src: spin.b, label: spin.lb[lang] }] as const).map((item) => (
+          <button key={item.src} type="button" onClick={() => onOpen(id)} className="text-left">
+            <img src={item.src} alt={item.label} className="aspect-square w-full object-cover" />
+            <span className="block px-4 py-3 text-[11px] tracking-[0.22em] uppercase">{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Catalog({ market, lang, stock, known, onOpen }: { market: Market; lang: Lang; stock: Record<string, number>; known: boolean; onOpen: (id: string) => void }) {
   const t = COPY[lang];
   return (
-    <main className="mx-auto grid max-w-5xl gap-4 px-4 py-4 sm:grid-cols-3">
+    <main id="loja" className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:grid-cols-3">
+      <h2 className="text-xs tracking-[0.28em] uppercase sm:col-span-3">{t.arrivals}</h2>
       {PRODUCTS.map((item) => {
         const gone = known && SIZES.every((size) => (stock[`${item.id}|${size}`] ?? 0) <= 0);
         return (
-          <button key={item.id} type="button" onClick={() => onOpen(item.id)} className="grid bg-white text-left text-black">
-            <img src={item.images[0]} alt={item.alt[lang][0]} className="aspect-[3/4] w-full object-contain" />
-            <span className="grid gap-1 px-3 py-3">
-              <span className="text-base font-bold">{item.name[lang]}</span>
+          <button key={item.id} type="button" onClick={() => onOpen(item.id)} className="grid bg-[#f4f1ec] text-left text-[#1a1714]">
+            <span className="aspect-[3/4] overflow-hidden bg-[#ebe4da]">
+              <img src={item.images[0]} alt={item.alt[lang][0]} className="h-full w-full object-cover object-[center_12%] scale-110" />
+            </span>
+            <span className="grid gap-1 py-3">
+              <span className="text-sm tracking-wide">{item.name[lang]}</span>
               <span className="text-sm">{gone ? t.soldOut : formatMoney(item, market)}</span>
             </span>
           </button>
@@ -587,30 +743,37 @@ function ProductView({
   const t = COPY[lang];
   return (
     <article className="mx-auto grid max-w-3xl gap-4 px-4 py-4">
-      <div className="bg-white">
-        <img src={product.images[shot]} alt={product.alt[lang][shot]} className="mx-auto max-h-[70vh] w-full object-contain" />
+      <div className="aspect-[3/4] overflow-hidden bg-[#ebe4da]">
+        <img src={product.images[shot]} alt={product.alt[lang][shot]} className="h-full w-full object-cover object-[center_16%]" />
       </div>
+      {SPIN[product.id] ? (
+        <div className="grid grid-cols-2 gap-2">
+          <img src={SPIN[product.id].a} alt={SPIN[product.id].la[lang]} className="aspect-square w-full object-cover" />
+          <img src={SPIN[product.id].b} alt={SPIN[product.id].lb[lang]} className="aspect-square w-full object-cover" />
+        </div>
+      ) : null}
       <div className="flex gap-2">
         {[t.front, t.back].map((label, index) => (
-          <button key={label} type="button" onClick={() => onShot(index)} aria-pressed={shot === index} className={`px-3 py-2 text-sm font-bold ring-1 ring-white ${shot === index ? "bg-white text-black" : ""}`}>
+          <button key={label} type="button" onClick={() => onShot(index)} aria-pressed={shot === index} className={`rounded-full px-3 py-2 text-sm font-bold ring-1 ring-[#1a1714] ${shot === index ? "bg-[#1a1714] text-white" : ""}`}>
             {label}
           </button>
         ))}
       </div>
       <h1 className="text-3xl font-bold">{product.name[lang]}</h1>
+      <p className="max-w-xl text-lg leading-snug">{product.material[lang]}</p>
       <p className="text-xl font-bold">{formatMoney(product, market)}</p>
       {product.id.startsWith("tracksuit-") ? <p className="text-sm font-bold">{t.tracksuitDeal}</p> : null}
-      <p className="text-white/80">{product.blurb[lang]}</p>
+      <p className="text-[#1a1714]/75">{product.blurb[lang]}</p>
       <p className="text-sm font-bold">{t.size}</p>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t.size}>
         {SIZES.map((option) => (
-          <button key={option} type="button" onClick={() => onSize(option)} aria-pressed={size === option} className={`min-w-12 px-3 py-2 font-bold ring-1 ring-white ${size === option ? "bg-white text-black" : ""}`}>
+          <button key={option} type="button" onClick={() => onSize(option)} aria-pressed={size === option} className={`min-w-12 rounded-full px-3 py-2 font-bold ring-1 ring-[#1a1714] ${size === option ? "bg-[#1a1714] text-white" : ""}`}>
             {option}
           </button>
         ))}
       </div>
-      <button type="button" onClick={onAdd} disabled={left < 1} className="bg-white px-4 py-3 font-bold text-black disabled:bg-white/30">{left < 1 ? t.soldOut : t.add}</button>
-      <p className="text-sm text-white/70">{left < 1 ? t.noStock : t.left.replace("{n}", String(left))}</p>
+      <button type="button" onClick={onAdd} disabled={left < 1} className="rounded-full bg-[#1a1714] px-4 py-3 font-bold text-white disabled:bg-[#1a1714]/30">{left < 1 ? t.soldOut : t.add}</button>
+      <p className="text-sm text-[#1a1714]/70">{left < 1 ? t.noStock : t.left.replace("{n}", String(left))}</p>
     </article>
   );
 }
@@ -642,7 +805,7 @@ function BagView({
           const deal = priced.tracksuitDeal && item.id.startsWith("tracksuit-");
           const unit = market === "AO" ? kzAmount(item) : item.priceEur;
           return (
-            <li key={`${line.productId}-${line.size}`} className="grid grid-cols-[72px_1fr] gap-3 bg-white p-2 text-black">
+            <li key={`${line.productId}-${line.size}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-[1.5rem] bg-white p-2 text-black">
               <img src={item.images[0]} alt="" className="size-[72px] object-contain" />
               <span className="grid gap-1">
                 <span className="font-bold">{item.name[lang]}</span>
@@ -650,9 +813,9 @@ function BagView({
                   {line.size} · {deal ? <s>{formatAmount(unit, market)}</s> : null} {formatAmount(deal ? Math.round(unit * 0.9) : unit, market)}
                 </span>
                 <span className="flex items-center gap-2">
-                  <button type="button" aria-label={t.qty} onClick={() => onQty(index, line.qty - 1)} className="size-9 bg-black font-bold text-white">−</button>
+                  <button type="button" aria-label={t.qty} onClick={() => onQty(index, line.qty - 1)} className="size-9 rounded-full bg-black font-bold text-white">−</button>
                   <span className="tabular-nums">{line.qty}</span>
-                  <button type="button" aria-label={t.qty} onClick={() => onQty(index, line.qty + 1)} className="size-9 bg-black font-bold text-white">+</button>
+                  <button type="button" aria-label={t.qty} onClick={() => onQty(index, line.qty + 1)} className="size-9 rounded-full bg-black font-bold text-white">+</button>
                   <button type="button" onClick={() => onQty(index, 0)} className="ml-auto text-sm underline">{t.remove}</button>
                 </span>
               </span>
@@ -663,8 +826,8 @@ function BagView({
       {lines.length > 0 ? (
         <>
           <Totals lang={lang} market={market} priced={priced} />
-          {!priced.tracksuitDeal && lines.some((line) => line.productId.startsWith("tracksuit-")) ? <p className="text-sm text-white/80">{t.tracksuitSoon}</p> : null}
-          <button type="button" onClick={onCheckout} className="bg-white px-4 py-3 font-bold text-black">{t.checkout}</button>
+          {!priced.tracksuitDeal && lines.some((line) => line.productId.startsWith("tracksuit-")) ? <p className="text-sm text-[#1a1714]/70">{t.tracksuitSoon}</p> : null}
+          <button type="button" onClick={onCheckout} className="rounded-full bg-[#1a1714] px-4 py-3 font-bold text-white">{t.checkout}</button>
         </>
       ) : null}
     </section>
@@ -674,18 +837,31 @@ function BagView({
 function Story({ lang }: { lang: Lang }) {
   const t = COPY[lang];
   return (
-    <section className="mx-auto grid max-w-3xl gap-4 px-4 py-8">
-      <h2 className="text-2xl font-bold">{t.storyTitle}</h2>
-      <p className="text-white/80">{t.storyLead}</p>
+    <section id="marca" className="mx-auto grid max-w-3xl gap-6 px-4 py-16">
+      <h2 className="text-[11px] tracking-[0.28em] uppercase">{t.about}</h2>
+      <p className="max-w-xl text-3xl leading-tight font-medium sm:text-4xl">🖤 {t.storyTitle}</p>
+      <p className="max-w-xl text-lg leading-snug">{t.storyLead}</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        {t.founders.map((person) => (
-          <article key={person.name} className="grid gap-2 bg-white p-4 text-black">
-            <p className="text-lg font-bold">{person.name}</p>
-            <p className="text-xs font-bold tracking-wide uppercase">{person.role}</p>
-            <p className="text-sm">{person.text}</p>
-          </article>
-        ))}
+        {t.founders.map((person) => {
+          const age = person.role.match(/\d+/)?.[0] ?? "";
+          const craft = person.role.split("·").slice(1).join("·").trim();
+          return (
+            <article key={person.name} className="grid content-start gap-3 rounded-[2rem] bg-white p-6 text-[#1a1714]">
+              <p className="text-5xl leading-none font-medium tracking-tight">{person.mark} {age}</p>
+              <div>
+                <p className="text-lg font-medium">{person.name}</p>
+                <p className="text-[11px] tracking-[0.22em] uppercase">{craft}</p>
+              </div>
+              <p className="text-sm leading-relaxed">{person.text}</p>
+            </article>
+          );
+        })}
       </div>
+      <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm tracking-wide">
+        {t.tags.map((tag) => (
+          <span key={tag}>{tag}</span>
+        ))}
+      </p>
     </section>
   );
 }
@@ -708,36 +884,49 @@ function phoneBits(code: "AO" | "PT") {
 function contactLine(lang: Lang) {
   const ao = phoneBits("AO");
   const pt = phoneBits("PT");
-  if (lang === "en") return <>Alessandro Arrulo and Kelyane both answer. In Angola, call or message {ao}. In Portugal, {pt}.</>;
-  if (lang === "fr") return <>Alessandro Arrulo et Kelyane répondent tous les deux. En Angola, appelle ou écris au {ao}. Au Portugal, au {pt}.</>;
-  return <>Alessandro Arrulo e Kelyane atendem os dois. Em Angola, liga ou escreve para {ao}. Em Portugal, para {pt}.</>;
+  if (lang === "en") return <>Alessandro Arrulo and Kalyani Ngenohame both answer. In Angola, call or message {ao}. In Portugal, {pt}.</>;
+  if (lang === "fr") return <>Alessandro Arrulo et Kalyani Ngenohame répondent tous les deux. En Angola, appelle ou écris au {ao}. Au Portugal, au {pt}.</>;
+  return <>Alessandro Arrulo e Kalyani Ngenohame atendem os dois. Em Angola, liga ou escreve para {ao}. Em Portugal, para {pt}.</>;
 }
 
 function Faq({ lang, open, onToggle }: { lang: Lang; open: number | null; onToggle: (index: number) => void }) {
   const t = COPY[lang];
   return (
-    <section className="mx-auto grid max-w-2xl gap-2 px-4 py-10">
+    <section id="contacto" className="mx-auto grid max-w-2xl gap-2 px-4 py-12">
       <h2 className="text-2xl font-bold">{t.faqTitle}</h2>
       {t.faqs.map((item, index) => {
         const expanded = open === index;
         return (
-          <div key={item.q} className="border-t border-white/30">
+          <div key={item.q} className="border-t border-[#1a1714]/15">
             <button type="button" aria-expanded={expanded} onClick={() => onToggle(index)} className="flex w-full items-center justify-between gap-3 py-3 text-left font-bold">
               {item.q}
-              <span aria-hidden className={`text-[#f3c1d4] ${expanded ? "rotate-180" : ""}`}>⌄</span>
+              <span aria-hidden className={`${expanded ? "rotate-180" : ""}`}>⌄</span>
             </button>
-            {expanded ? <p className="pb-3 text-white/85">{item.a}</p> : null}
+            {expanded ? <p className="pb-3 text-[#1a1714]/75">{item.a}</p> : null}
           </div>
         );
       })}
-      <div className="border-t border-white/30">
+      <div className="border-t border-[#1a1714]/15">
         <button type="button" aria-expanded={open === -1} onClick={() => onToggle(-1)} className="flex w-full items-center justify-between gap-3 py-3 text-left font-bold">
           {t.ask}
-          <span aria-hidden className={`text-[#f3c1d4] ${open === -1 ? "rotate-180" : ""}`}>⌄</span>
+          <span aria-hidden className={`${open === -1 ? "rotate-180" : ""}`}>⌄</span>
         </button>
-        {open === -1 ? <p className="pb-3 text-white/85">{contactLine(lang)}</p> : null}
+        {open === -1 ? <p className="pb-3 text-[#1a1714]/75">{contactLine(lang)}</p> : null}
       </div>
     </section>
+  );
+}
+
+function SpeakerIcon({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" aria-hidden>
+      <path fill="currentColor" d="M4 9h3.2L12 5.2v13.6L7.2 15H4V9z" />
+      {on ? (
+        <path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M15.5 9.2a3.4 3.4 0 0 1 0 5.6M17.8 7a6 6 0 0 1 0 10" />
+      ) : (
+        <path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M16 10l4.5 4.5M20.5 10 16 14.5" />
+      )}
+    </svg>
   );
 }
 

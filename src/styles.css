@@ -101,11 +101,13 @@ html[data-theme="night"] {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+.reel-turn {
+  animation: reel-drift 16s ease-in-out infinite alternate;
 }
+
+@keyframes reel-drift {
+  from { transform: scale(1.08); }
+  to { transform: scale(1.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {

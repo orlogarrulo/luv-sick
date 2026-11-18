@@ -12,6 +12,7 @@ export type Product = {
   priceKz: number;
   images: [string, string];
   name: Record<Lang, string>;
+  material: Record<Lang, string>;
   blurb: Record<Lang, string>;
   alt: Record<Lang, [string, string]>;
 };
@@ -23,6 +24,11 @@ export const PRODUCTS: Product[] = [
     priceKz: 100000,
     images: ["/luvsick/products/long-sleeve-1.jpg", "/luvsick/products/long-sleeve-2.jpg"],
     name: { pt: "Manga comprida", en: "Long sleeve", fr: "Manches longues" },
+    material: {
+      pt: "Algodão lavado. Gráfico do anjo na frente e lettering nas mangas.",
+      en: "Washed cotton. Angel graphic on the front and lettering on the sleeves.",
+      fr: "Coton lavé. Graphique d'ange devant et lettrage sur les manches.",
+    },
     blurb: {
       pt: "Long sleeve Luv Sick com gráfico de anjo na frente e lettering nas mangas.",
       en: "Luv Sick long sleeve with the angel graphic on the front and lettering on the sleeves.",
@@ -40,6 +46,11 @@ export const PRODUCTS: Product[] = [
     priceKz: 160000,
     images: ["/luvsick/products/tracksuit-black-1.jpg", "/luvsick/products/tracksuit-black-2.jpg"],
     name: { pt: "Fato de treino preto", en: "Black tracksuit", fr: "Survêtement noir" },
+    material: {
+      pt: "Moletom de algodão. Hoodie e calças, com o coração da marca.",
+      en: "Cotton fleece. Hoodie and trousers, with the brand heart.",
+      fr: "Molleton de coton. Hoodie et pantalon, avec le cœur de la marque.",
+    },
     blurb: {
       pt: "Fato de treino preto Luv Sick, conjunto completo (hoodie e calças) com o coração da marca.",
       en: "Black Luv Sick tracksuit, the full set (hoodie and trousers) with the brand heart.",
@@ -57,6 +68,11 @@ export const PRODUCTS: Product[] = [
     priceKz: 160000,
     images: ["/luvsick/products/tracksuit-brown-1.jpg", "/luvsick/products/tracksuit-brown-2.jpg"],
     name: { pt: "Fato de treino castanho", en: "Brown tracksuit", fr: "Survêtement marron" },
+    material: {
+      pt: "Moletom de algodão. Hoodie e calças, com o coração da marca.",
+      en: "Cotton fleece. Hoodie and trousers, with the brand heart.",
+      fr: "Molleton de coton. Hoodie et pantalon, avec le cœur de la marque.",
+    },
     blurb: {
       pt: "Fato de treino castanho Luv Sick, conjunto completo (hoodie e calças) com o coração da marca.",
       en: "Brown Luv Sick tracksuit, the full set (hoodie and trousers) with the brand heart.",
@@ -191,7 +207,8 @@ type Dict = {
   heroTitle: string;
   sound: string;
   mute: string;
-  founders: { name: string; role: string; text: string }[];
+  tags: string[];
+  founders: { name: string; role: string; text: string; mark: string }[];
   orderLead: string;
   faqs: { q: string; a: string }[];
 };
@@ -250,8 +267,8 @@ export const COPY: Record<Lang, Dict> = {
     manyPieces: "artigos",
     langName: "Idioma",
     marketName: "País",
-    storyTitle: "Quem faz a Luv Sick",
-    storyLead: "Destes dois jovens nasceu a marca. Os dois têm o prazer de receber e fazer as vendas eles mesmos. É um pormenor da casa.",
+    storyTitle: "Dois. Uma marca.",
+    storyLead: "Não há balcão. Há dois. Alessandro Arrulo no corte, Kalyani Ngenohame na voz. A tua encomenda chega-lhes às mãos.",
     home: "Início",
     about: "A marca",
     lookbook: "Lookbook",
@@ -263,9 +280,10 @@ export const COPY: Record<Lang, Dict> = {
     heroTitle: "Para todos os dias",
     sound: "Som",
     mute: "Sem som",
+    tags: ["#LuvSick", "#FeitoPorNós", "#Angola", "#Moda"],
     founders: [
-      { name: "Alessandro Arrulo", role: "18 anos · design", text: "Trata do desenho: o corte, o gráfico e o detalhe que vês na peça. Recebe as encomendas e faz as vendas ele mesmo." },
-      { name: "Kelyane", role: "17 anos · marketing", text: "Trata do marketing e da voz da marca. Recebe as encomendas e faz as vendas ele mesmo." },
+      { name: "Alessandro Arrulo", role: "18 anos · design", mark: "✂️", text: "O corte, o gráfico, o coração na peça. Se está na roupa, passou por ele. A encomenda também: responde ele." },
+      { name: "Kalyani Ngenohame", role: "17 anos · marketing", mark: "📣", text: "A voz da marca é com ele. O que se diz e o que se vê lá fora. Quando compras, falas com ele." },
     ],
     orderLead: "Encomenda enviada pelo site Luv Sick. Fico a aguardar as instruções de pagamento.",
     faqs: [
@@ -329,8 +347,8 @@ export const COPY: Record<Lang, Dict> = {
     manyPieces: "items",
     langName: "Language",
     marketName: "Country",
-    storyTitle: "Who makes Luv Sick",
-    storyLead: "The brand started with these two. They both like taking the orders and making the sales themselves. It's a personal touch.",
+    storyTitle: "Two. One brand.",
+    storyLead: "No counter. Just two. Alessandro Arrulo on the cut, Kalyani Ngenohame on the voice. Your order lands in their hands.",
     home: "Home",
     about: "About",
     lookbook: "Lookbook",
@@ -342,9 +360,10 @@ export const COPY: Record<Lang, Dict> = {
     heroTitle: "Everyday pieces",
     sound: "Sound",
     mute: "Mute",
+    tags: ["#LuvSick", "#MadeByUs", "#Angola", "#Fashion"],
     founders: [
-      { name: "Alessandro Arrulo", role: "18 · design", text: "He handles the design: the cut, the graphic and the detail you see on the piece. He takes the orders and makes the sales himself." },
-      { name: "Kelyane", role: "17 · marketing", text: "He handles the marketing and the brand's voice. He takes the orders and makes the sales himself." },
+      { name: "Alessandro Arrulo", role: "18 · design", mark: "✂️", text: "The cut, the graphic, the heart on the piece. If it's on the clothes, it went through him. Your order too: he answers." },
+      { name: "Kalyani Ngenohame", role: "17 · marketing", mark: "📣", text: "The brand's voice is his. What gets said, and what you see out there. When you buy, you talk to him." },
     ],
     orderLead: "Order sent from the Luv Sick site. I'll wait for the payment instructions.",
     faqs: [
@@ -408,8 +427,8 @@ export const COPY: Record<Lang, Dict> = {
     manyPieces: "articles",
     langName: "Langue",
     marketName: "Pays",
-    storyTitle: "Qui fait Luv Sick",
-    storyLead: "La marque est née de ces deux jeunes. Tous les deux aiment recevoir les commandes et faire les ventes eux-mêmes. C'est un détail de la maison.",
+    storyTitle: "Deux. Une marque.",
+    storyLead: "Pas de comptoir. Juste eux deux. Alessandro Arrulo à la coupe, Kalyani Ngenohame à la voix. Ta commande arrive entre leurs mains.",
     home: "Accueil",
     about: "La marque",
     lookbook: "Lookbook",
@@ -421,9 +440,10 @@ export const COPY: Record<Lang, Dict> = {
     heroTitle: "Pour tous les jours",
     sound: "Son",
     mute: "Muet",
+    tags: ["#LuvSick", "#FaitParNous", "#Angola", "#Mode"],
     founders: [
-      { name: "Alessandro Arrulo", role: "18 ans · design", text: "Il s'occupe du dessin : la coupe, le graphique et le détail que tu vois sur la pièce. Il reçoit les commandes et fait les ventes lui-même." },
-      { name: "Kelyane", role: "17 ans · marketing", text: "Il s'occupe du marketing et de la voix de la marque. Il reçoit les commandes et fait les ventes lui-même." },
+      { name: "Alessandro Arrulo", role: "18 ans · design", mark: "✂️", text: "La coupe, le graphique, le cœur sur la pièce. Si c'est sur le vêtement, c'est passé par lui. Ta commande aussi : c'est lui qui répond." },
+      { name: "Kalyani Ngenohame", role: "17 ans · marketing", mark: "📣", text: "La voix de la marque, c'est lui. Ce qui se dit, et ce qui se voit dehors. Quand tu achètes, tu lui parles." },
     ],
     orderLead: "Commande envoyée depuis le site Luv Sick. J'attends les instructions de paiement.",
     faqs: [
