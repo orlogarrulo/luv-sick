@@ -77,8 +77,8 @@ type Account = {
   city: string;
   country: string;
   postal: string;
-  orders: { ref: string; totalLabel: string; createdAt: string }[];
-  reservations: { ref: string; depositLabel: string; balanceLabel: string; createdAt: string }[];
+  orders: { ref: string; totalLabel: string; createdAt: string; paid: boolean }[];
+  reservations: { ref: string; depositLabel: string; balanceLabel: string; createdAt: string; paid: boolean }[];
 };
 
 export function LuvSickApp() {
@@ -774,7 +774,7 @@ export function LuvSickApp() {
           {view === "sent" && kind === "reserve" ? (
             <section className="mx-auto grid max-w-lg gap-4 px-4 py-8">
               <p className="text-sm font-bold tracking-[0.18em] uppercase text-[#1a1714]/70">{refCode}</p>
-              <h1 className="text-3xl font-bold">{t.reserveOk}</h1>
+              <h1 className="text-3xl font-bold">{t.reserveWait}</h1>
               <p>{t.halfLater}</p>
               {trial ? <p className="text-sm text-[#1a1714]/70">{t.practice}</p> : null}
               <p>{form.name.trim()} · {fullPhone(phoneIso, form.phone)}</p>
@@ -893,12 +893,18 @@ export function LuvSickApp() {
                   </form>
                   <h2 className="font-bold">{t.myOrders}</h2>
                   {account.orders.length + account.reservations.length === 0 ? <p>{t.noOrders}</p> : null}
-                  <ul className="grid gap-2">
+                  <ul className="grid gap-3">
                     {account.orders.map((order) => (
-                      <li key={order.ref}>{order.ref} · {order.totalLabel}</li>
+                      <li key={order.ref} className={`grid gap-1 rounded-2xl px-3 py-3 ${order.paid ? "bg-[#e5f4ea]" : "bg-white"}`}>
+                        <p>{order.ref} · {order.totalLabel}</p>
+                        <PayMark paid={order.paid} done={t.paidOk} wait={t.awaitPay} />
+                      </li>
                     ))}
                     {account.reservations.map((item) => (
-                      <li key={item.ref}>{item.ref} · {item.depositLabel} · {item.balanceLabel}</li>
+                      <li key={item.ref} className={`grid gap-1 rounded-2xl px-3 py-3 ${item.paid ? "bg-[#e5f4ea]" : "bg-white"}`}>
+                        <p>{item.ref} · {item.depositLabel} · {item.balanceLabel}</p>
+                        <PayMark paid={item.paid} done={t.paidOk} wait={t.awaitPay} />
+                      </li>
                     ))}
                   </ul>
                   <button type="button" onClick={logout} className="text-sm underline">{t.logout}</button>
@@ -1259,6 +1265,16 @@ function Story({ lang }: { lang: Lang }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function PayMark({ paid, done, wait }: { paid: boolean; done: string; wait: string }) {
+  if (!paid) return <p className="text-sm text-[#1a1714]/70">{wait}</p>;
+  return (
+    <p className="flex items-center gap-2 font-bold text-[#1d6b3a]">
+      <span aria-hidden className="grid size-6 place-items-center rounded-full bg-[#1d6b3a] text-sm text-white">✓</span>
+      {done}
+    </p>
   );
 }
 

@@ -420,6 +420,10 @@ export const luvSetStockIn = createServerFn({ method: "POST" })
   .validator((data: { code: string; stockIn: boolean }) => data)
   .handler(async ({ data }) => (await luvApi()).luvSetStockIn(data.code, data.stockIn));
 
+export const luvConfirmReserve = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvConfirmReserve(data.code, data.id));
+
 export const luvMarkReservations = createServerFn({ method: "POST" })
   .validator((data: { code: string; kind: string; ids: string[] }) => data)
   .handler(async ({ data }) => (await luvApi()).luvMarkReservations(data.code, data.kind, data.ids));

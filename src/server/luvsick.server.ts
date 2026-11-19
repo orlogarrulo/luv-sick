@@ -63,6 +63,7 @@ async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) 
   await sql.query(`alter table luv_reservations add column if not exists invoice_no text not null default ''`);
   await sql.query(`alter table luv_reservations add column if not exists emailed_at timestamptz`);
   await sql.query(`alter table luv_reservations add column if not exists trial boolean not null default false`);
+  await sql.query(`alter table luv_reservations add column if not exists paid_at timestamptz`);
   await sql.query(`alter table luv_orders add column if not exists email text not null default ''`);
   await sql.query(`alter table luv_orders add column if not exists trial boolean not null default false`);
   await sql.query(`alter table luv_orders add column if not exists invoice_no text not null default ''`);
@@ -292,6 +293,7 @@ export type DeskReservation = {
   invoiceNo: string;
   emailed: boolean;
   trial: boolean;
+  paidAt: string;
 };
 
 function mapReservation(row: Record<string, unknown>): DeskReservation {
@@ -321,6 +323,7 @@ function mapReservation(row: Record<string, unknown>): DeskReservation {
     invoiceNo: String(row.invoice_no ?? ""),
     emailed: Boolean(row.emailed_at),
     trial: Boolean(row.trial),
+    paidAt: row.paid_at ? (row.paid_at instanceof Date ? row.paid_at.toISOString() : String(row.paid_at)) : "",
   };
 }
 
@@ -350,7 +353,7 @@ function reserveLetter(row: DeskReservation) {
     `Olá ${row.name},`,
     "",
     "Recebemos a tua reserva na Luv Sick.",
-    "Pagaste 50% agora. Segue o recibo.",
+    "Os 50% iniciais ainda não estão confirmados.",
     "A fatura dos outros 50% paga-se no dia do envio.",
     "As entregas começam a 15 de dezembro.",
     "",
@@ -478,9 +481,9 @@ async function accountBundle(email: string) {
   const sql = await ensureStock();
   const people = await sql.query(`select * from luv_customers where email = $1`, [email]);
   const row = (people[0] ?? {}) as Record<string, unknown>;
-  const orders = await sql.query(`select ref, total_label, created_at from luv_orders where email = $1 order by created_at desc limit 30`, [email]);
+  const orders = await sql.query(`select ref, total_label, created_at, paid_at from luv_orders where email = $1 order by created_at desc limit 30`, [email]);
   const reservations = await sql.query(
-    `select ref, deposit_label, balance_label, created_at from luv_reservations where email = $1 order by created_at desc limit 30`,
+    `select ref, deposit_label, balance_label, created_at, paid_at from luv_reservations where email = $1 order by created_at desc limit 30`,
     [email],
   );
   return {
@@ -495,12 +498,14 @@ async function accountBundle(email: string) {
       ref: String(item.ref),
       totalLabel: String(item.total_label),
       createdAt: stamp(item.created_at),
+      paid: Boolean(item.paid_at),
     })),
     reservations: reservations.map((item) => ({
       ref: String(item.ref),
       depositLabel: String(item.deposit_label ?? ""),
       balanceLabel: String(item.balance_label ?? ""),
       createdAt: stamp(item.created_at),
+      paid: Boolean(item.paid_at),
     })),
   };
 }
@@ -613,6 +618,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
     invoiceNo,
     emailed: false,
     trial,
+    paidAt: "",
   };
   const emailed = await mailCustomer(email, `Luv Sick · ${ref} · recibo e fatura`, reserveLetter(paper));
   if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);
@@ -656,6 +662,16 @@ export async function luvMarkReservations(code: string, kind: string, ids: strin
   if (!column || !clean.length) return { ok: false as const };
   const sql = await ensureStock();
   await sql.query(`update luv_reservations set ${column} = true where id = any($1::text[])`, [clean]);
+  return { ok: true as const };
+}
+
+export async function luvConfirmReserve(code: string, id: string) {
+  if (!allowed(code)) return { ok: false as const };
+  const clean = id.replace(/[^a-f0-9]/g, "");
+  if (clean.length < 8) return { ok: false as const };
+  const sql = await ensureStock();
+  await ensureReservationTables(sql);
+  await sql.query(`update luv_reservations set paid_at = coalesce(paid_at, now()) where id = $1`, [clean]);
   return { ok: true as const };
 }
 

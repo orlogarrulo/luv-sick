@@ -172,6 +172,9 @@ type Dict = {
   shareLine: string;
   reserve: string;
   reserveOk: string;
+  reserveWait: string;
+  paidOk: string;
+  awaitPay: string;
   halfNow: string;
   halfLater: string;
   receiptWord: string;
@@ -271,7 +274,10 @@ export const COPY: Record<Lang, Dict> = {
     share: "Partilhar",
     shareLine: "Olha esta peça da Luv Sick: {name}",
     reserve: "Reservar",
-    reserveOk: "Reserva feita. Pagaste 50%.",
+    reserveOk: "A reserva só fica confirmada depois do pagamento.",
+    reserveWait: "Pedido recebido. O pagamento ainda não está confirmado.",
+    paidOk: "Encomenda feita. Pagamento confirmado.",
+    awaitPay: "À espera da confirmação do pagamento.",
     halfNow: "A pagar agora, 50%",
     halfLater: "Os outros 50% pagam-se no dia do envio.",
     receiptWord: "Recibo",
@@ -378,7 +384,10 @@ export const COPY: Record<Lang, Dict> = {
     share: "Share",
     shareLine: "Look at this Luv Sick piece: {name}",
     reserve: "Reserve",
-    reserveOk: "Reservation placed. You paid 50%.",
+    reserveOk: "The reservation is only confirmed after payment.",
+    reserveWait: "Request received. Payment is not confirmed yet.",
+    paidOk: "Order complete. Payment confirmed.",
+    awaitPay: "Waiting for payment confirmation.",
     halfNow: "Pay now, 50%",
     halfLater: "The other 50% is paid on the day the order is sent.",
     receiptWord: "Receipt",
@@ -485,7 +494,10 @@ export const COPY: Record<Lang, Dict> = {
     share: "Partager",
     shareLine: "Regarde cette pièce Luv Sick : {name}",
     reserve: "Réserver",
-    reserveOk: "Réservation faite. Tu as payé 50 %.",
+    reserveOk: "La réservation n'est confirmée qu'après le paiement.",
+    reserveWait: "Demande reçue. Le paiement n'est pas encore confirmé.",
+    paidOk: "Commande faite. Paiement confirmé.",
+    awaitPay: "En attente de confirmation du paiement.",
     halfNow: "À payer maintenant, 50 %",
     halfLater: "Les autres 50 % se paient le jour de l'envoi.",
     receiptWord: "Reçu",

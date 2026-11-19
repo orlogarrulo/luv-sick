@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PRODUCTS, SIZES } from "@/lib/luvsick";
-import { luvAckOrder, luvDesk, luvIssueReceipt, luvMarkReservations, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
+import { luvAckOrder, luvConfirmReserve, luvDesk, luvIssueReceipt, luvMarkReservations, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number };
 type Line = { productId: string; size: string; qty: number };
@@ -43,6 +43,7 @@ type Reservation = {
   invoiceNo?: string;
   emailed?: boolean;
   trial?: boolean;
+  paidAt?: string;
 };
 
 const RECEIVED_ALL = `Olá,
@@ -375,12 +376,23 @@ export function LuvSickDesk() {
                     <p className="font-bold">{item.ref} · {item.name}{item.trial ? " · Ensaio" : ""}</p>
                     <p>{item.phone} · {item.email}</p>
                     <p>{lineLabel(item.lines)} · {qty}</p>
-                    {item.depositLabel ? <p>Pago 50%: {item.depositLabel}{item.pay ? ` · ${item.pay}` : ""}</p> : null}
+                    {item.depositLabel ? <p>{item.paidAt ? "Pago" : "Por confirmar"} 50%: {item.depositLabel}{item.pay ? ` · ${item.pay}` : ""}</p> : null}
                     {item.balanceLabel ? <p>Fatura 50%: {item.balanceLabel} · no dia do envio</p> : null}
                     <p className="text-black/60">{item.receivedSent ? "Receção enviada. " : ""}{item.stockSent ? "Lembrete de stock enviado. " : ""}{item.emailed ? "Email enviado." : "Email por enviar."}</p>
                     <pre className="whitespace-pre-wrap font-sans">{note}</pre>
                     <a href={`https://wa.me/${waDigits(item.phone)}?text=${encodeURIComponent(note)}`} target="_blank" rel="noreferrer" className="font-bold underline">WhatsApp desta pessoa</a>
                     {item.receiptNo ? <a href={`/recibo/${item.ref}`} className="font-bold underline">{item.receiptNo} · {item.invoiceNo}</a> : null}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await luvConfirmReserve({ data: { code, id: item.id } });
+                        if (!res.ok) return;
+                        setReservations((current) => current.map((row) => (row.id === item.id ? { ...row, paidAt: row.paidAt || new Date().toISOString() } : row)));
+                      }}
+                      className="w-fit bg-black px-3 py-2 font-bold text-white"
+                    >
+                      {item.paidAt ? "Pagamento confirmado" : "Confirmar pagamento"}
+                    </button>
                     <button
                       type="button"
                       onClick={async () => {
