@@ -679,8 +679,8 @@ export function LuvSickApp() {
             <>
               <section id="inicio">
                 <video
-                  src="/luvsick/brand/hero-meet-11.mp4"
-                  poster="/luvsick/brand/hero-meet-11.jpg"
+                  src="/luvsick/brand/hero-meet-12.mp4"
+                  poster="/luvsick/brand/hero-meet-12.jpg"
                   className="mx-auto block h-auto max-h-[70vh] w-full bg-[#cbb7a2] object-contain"
                   autoPlay
                   muted
