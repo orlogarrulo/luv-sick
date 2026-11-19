@@ -252,5 +252,6 @@ export function fullPhone(iso: string, local: string) {
   const code = dial.replace(/\D/g, "");
   let digits = local.replace(/\D/g, "");
   if (digits.startsWith(code) && digits.length > code.length + 4) digits = digits.slice(code.length);
+  if (digits.startsWith("0")) digits = digits.slice(1);
   return `${dial} ${digits}`;
 }

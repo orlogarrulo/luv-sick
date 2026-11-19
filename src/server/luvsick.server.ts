@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { PAY, PRACTICE_EMAIL, PRODUCTS, SIZES, formatAmount, quote, splitHalf, type Market } from "@/lib/luvsick";
+import { phoneOkFull } from "@/lib/phone";
 
 const START_QTY = 5;
 const DESK_CODE = process.env.LUVSICK_DESK_CODE?.trim() || "LuvSick-1847";
@@ -163,8 +164,8 @@ export async function luvPlace(input: {
 }) {
   const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const country = input.country === "AO" || input.country === "PT" ? input.country : "";
-  if (!lines.length || !input.name.trim() || !input.phone.trim() || !country || !postalOk(country, input.postal)) {
-    return { ok: false as const, error: "form" as const };
+  if (!lines.length || !input.name.trim() || !phoneOkFull(input.phone) || !country || !postalOk(country, input.postal)) {
+    return { ok: false as const, error: !input.phone.trim() || phoneOkFull(input.phone) ? "form" as const : "phone" as const };
   }
   const market: Market = country;
   const sql = await ensureStock();
@@ -623,8 +624,8 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   const email = input.email.trim().toLowerCase();
   const market: Market = input.market === "PT" ? "PT" : "AO";
   const pay = payLabel(market, input.pay);
-  if (!lines.length || !input.name.trim() || input.phone.trim().length < 6 || !emailOk(email) || !pay) {
-    return { ok: false as const, error: "form" as const };
+  if (!lines.length || !input.name.trim() || !phoneOkFull(input.phone) || !emailOk(email) || !pay) {
+    return { ok: false as const, error: input.phone.trim() && !phoneOkFull(input.phone) ? "phone" as const : "form" as const };
   }
   const sql = await ensureStock();
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);

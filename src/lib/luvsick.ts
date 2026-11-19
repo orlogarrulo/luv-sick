@@ -214,6 +214,7 @@ type Dict = {
   postalBad: string;
   send: string;
   required: string;
+  phoneBad: string;
   pay: string;
   pickPay: string;
   soldOut: string;
@@ -317,6 +318,7 @@ export const COPY: Record<Lang, Dict> = {
     postalBad: "Em Portugal o código é 0000-000. Em Angola, escreve o código que usas.",
     send: "Enviar encomenda",
     required: "Preenche este campo.",
+    phoneBad: "Este número não pertence a uma operadora deste país.",
     pay: "Pagamento",
     pickPay: "Escolhe como queres pagar.",
     soldOut: "Esgotado",
@@ -427,6 +429,7 @@ export const COPY: Record<Lang, Dict> = {
     postalBad: "In Portugal the postcode is 0000-000. In Angola, write the code you use.",
     send: "Send order",
     required: "Fill in this field.",
+    phoneBad: "This number does not belong to an operator in this country.",
     pay: "Payment",
     pickPay: "Choose how you want to pay.",
     soldOut: "Sold out",
@@ -537,6 +540,7 @@ export const COPY: Record<Lang, Dict> = {
     postalBad: "Au Portugal, le code est 0000-000. En Angola, écris le code que tu utilises.",
     send: "Envoyer la commande",
     required: "Remplis ce champ.",
+    phoneBad: "Ce numéro n'appartient pas à un opérateur de ce pays.",
     pay: "Paiement",
     pickPay: "Choisis comment tu veux payer.",
     soldOut: "Épuisé",

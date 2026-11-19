@@ -20,6 +20,7 @@ import {
   type Product,
 } from "@/lib/luvsick";
 import { DIALS, dialOf, fullPhone } from "@/lib/dials";
+import { phoneOk } from "@/lib/phone";
 import { luvAccount, luvAskCode, luvCheckCoupon, luvEnter, luvMode, luvPlace, luvReserve, luvSaveAddress, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
@@ -361,7 +362,7 @@ export function LuvSickApp() {
     event.preventDefault();
     const next: Partial<Form> = {};
     if (!form.name.trim()) next.name = t.required;
-    if (form.phone.replace(/\D/g, "").length < 6) next.phone = t.required;
+    if (!phoneOk(phoneIso, form.phone)) next.phone = form.phone.replace(/\D/g, "") ? t.phoneBad : t.required;
     setErrors(next);
     const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     if (!pay) setPayError(t.required);
@@ -371,7 +372,7 @@ export function LuvSickApp() {
     }
     const placed = await luvReserve({ data: { lines, name: form.name, phone: fullPhone(phoneIso, form.phone), email, pay, market, lang } });
     if (!placed.ok) {
-      setOrderError(placed.error === "stock" ? t.noStock : placed.error === "closed" ? t.buy : t.required);
+      setOrderError(placed.error === "stock" ? t.noStock : placed.error === "phone" ? t.phoneBad : placed.error === "closed" ? t.buy : t.required);
       if (placed.error === "closed") setStockIn(true);
       if (placed.error === "stock") {
         const rows = await luvStock();
@@ -406,7 +407,7 @@ export function LuvSickApp() {
     (["name", "address", "city"] as const).forEach((key) => {
       if (!form[key].trim()) next[key] = t.required;
     });
-    if (form.phone.replace(/\D/g, "").length < 6) next.phone = t.required;
+    if (!phoneOk(phoneIso, form.phone)) next.phone = form.phone.replace(/\D/g, "") ? t.phoneBad : t.required;
     if (!postalOk(form.country, form.postal)) next.postal = t.postalBad;
     setErrors(next);
     const known = PAY[market].some((item) => item.id === pay);
@@ -431,7 +432,7 @@ export function LuvSickApp() {
       },
     });
     if (!placed.ok) {
-      setOrderError(placed.error === "coupon" ? t.couponBad : placed.error === "form" ? t.postalBad : t.noStock);
+      setOrderError(placed.error === "coupon" ? t.couponBad : placed.error === "phone" ? t.phoneBad : placed.error === "form" ? t.postalBad : t.noStock);
       const rows = await luvStock();
       const nextStock: Record<string, number> = {};
       rows.forEach((row) => {
