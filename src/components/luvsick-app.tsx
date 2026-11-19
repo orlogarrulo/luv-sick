@@ -19,6 +19,7 @@ import {
   type Market,
   type Product,
 } from "@/lib/luvsick";
+import { DIALS, dialOf, fullPhone } from "@/lib/dials";
 import { luvAccount, luvAskCode, luvCheckCoupon, luvEnter, luvMode, luvPlace, luvReserve, luvSaveAddress, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
@@ -110,6 +111,7 @@ export function LuvSickApp() {
   const [kind, setKind] = useState<"order" | "reserve">("order");
   const [paper, setPaper] = useState({ deposit: "", balance: "", total: "", receiptNo: "", invoiceNo: "", emailed: false });
   const [trial, setTrial] = useState(false);
+  const [phoneIso, setPhoneIso] = useState("PT");
   const [session, setSession] = useState("");
   const [account, setAccount] = useState<Account | null>(null);
   const [code, setCode] = useState("");
@@ -162,8 +164,12 @@ export function LuvSickApp() {
     const savedMarket = localStorage.getItem(MARKET_KEY);
     if (savedMarket === "PT" || savedMarket === "AO") {
       setMarket(savedMarket);
+      setPhoneIso(savedMarket);
       setForm((current) => ({ ...current, country: savedMarket }));
-    } else detectMarket(setMarket);
+    } else detectMarket((next) => {
+      setMarket(next);
+      setPhoneIso(next);
+    });
     setLines(readBag());
     try {
       const savedWish = JSON.parse(localStorage.getItem(WISH_KEY) ?? "[]");
@@ -262,6 +268,7 @@ export function LuvSickApp() {
 
   function chooseMarket(next: Market) {
     setMarket(next);
+    setPhoneIso(next);
     setPay("");
     setForm((current) => ({ ...current, country: next, postal: shapePostal(next, current.postal) }));
     localStorage.setItem(MARKET_KEY, next);
@@ -332,7 +339,7 @@ export function LuvSickApp() {
     return [
       `${t.ref}: ${code}`,
       `${t.name}: ${form.name.trim()}`,
-      `${t.phone}: ${form.phone.trim()}`,
+      `${t.phone}: ${fullPhone(phoneIso, form.phone)}`,
       `${t.address}: ${form.address.trim()}`,
       `${t.city}: ${form.city.trim()}`,
       `${t.country}: ${form.country === "AO" ? "Angola" : "Portugal"}`,
@@ -354,7 +361,7 @@ export function LuvSickApp() {
     event.preventDefault();
     const next: Partial<Form> = {};
     if (!form.name.trim()) next.name = t.required;
-    if (!form.phone.trim()) next.phone = t.required;
+    if (form.phone.replace(/\D/g, "").length < 6) next.phone = t.required;
     setErrors(next);
     const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     if (!pay) setPayError(t.required);
@@ -362,7 +369,7 @@ export function LuvSickApp() {
       if (!mailOk) setOrderError(t.emailBad);
       return;
     }
-    const placed = await luvReserve({ data: { lines, name: form.name, phone: form.phone, email, pay, market, lang } });
+    const placed = await luvReserve({ data: { lines, name: form.name, phone: fullPhone(phoneIso, form.phone), email, pay, market, lang } });
     if (!placed.ok) {
       setOrderError(placed.error === "closed" ? t.buy : t.required);
       if (placed.error === "closed") setStockIn(true);
@@ -387,9 +394,10 @@ export function LuvSickApp() {
   async function submitOrder(event: FormEvent) {
     event.preventDefault();
     const next: Partial<Form> = {};
-    (["name", "phone", "address", "city"] as const).forEach((key) => {
+    (["name", "address", "city"] as const).forEach((key) => {
       if (!form[key].trim()) next[key] = t.required;
     });
+    if (form.phone.replace(/\D/g, "").length < 6) next.phone = t.required;
     if (!postalOk(form.country, form.postal)) next.postal = t.postalBad;
     setErrors(next);
     const known = PAY[market].some((item) => item.id === pay);
@@ -401,7 +409,7 @@ export function LuvSickApp() {
       data: {
         lines,
         name: form.name,
-        phone: form.phone,
+        phone: fullPhone(phoneIso, form.phone),
         address: form.address,
         city: form.city,
         country: form.country,
@@ -663,13 +671,12 @@ export function LuvSickApp() {
               <p className="font-bold">{t.halfNow}: {formatAmount(splitHalf(priced.total).deposit, market)}</p>
               <p className="text-sm text-[#1a1714]/70">{t.halfLater}</p>
               <p className="text-sm">{t.invoiceWord}: {formatAmount(splitHalf(priced.total).balance, market)}</p>
-              {(["name", "phone"] as const).map((key) => (
-                <label key={key} className="grid gap-1 text-sm font-bold">
-                  {t[key]}
-                  <input value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
-                  {errors[key] ? <span className="font-normal text-[#1a1714]/70">{errors[key]}</span> : null}
-                </label>
-              ))}
+              <label className="grid gap-1 text-sm font-bold">
+                {t.name}
+                <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" autoComplete="name" />
+                {errors.name ? <span className="font-normal text-[#1a1714]/70">{errors.name}</span> : null}
+              </label>
+              <PhoneField iso={phoneIso} local={form.phone} label={t.phone} error={errors.phone} onIso={setPhoneIso} onLocal={(value) => setForm({ ...form, phone: value })} />
               <label className="grid gap-1 text-sm font-bold">
                 {t.email}
                 <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
@@ -691,14 +698,20 @@ export function LuvSickApp() {
           {view === "checkout" ? (
             <form onSubmit={submitOrder} className="mx-auto grid max-w-lg gap-3 px-4 py-6">
               <h1 className="text-3xl font-bold">{t.checkout}</h1>
-              {(["name", "phone", "address", "city"] as const).map((key) => (
+              <label className="grid gap-1 text-sm font-bold">
+                {t.name}
+                <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]" autoComplete="name" />
+                {errors.name ? <span className="font-normal text-[#1a1714]/70">{errors.name}</span> : null}
+              </label>
+              <PhoneField iso={phoneIso} local={form.phone} label={t.phone} error={errors.phone} onIso={setPhoneIso} onLocal={(value) => setForm({ ...form, phone: value })} />
+              {(["address", "city"] as const).map((key) => (
                 <label key={key} className="grid gap-1 text-sm font-bold">
                   {t[key]}
                   <input
                     value={form[key]}
                     onChange={(event) => setForm({ ...form, [key]: event.target.value })}
                     className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]"
-                    autoComplete={key === "name" ? "name" : key === "phone" ? "tel" : "off"}
+                    autoComplete={key === "address" ? "street-address" : "address-level2"}
                   />
                   {errors[key] ? <span className="font-normal text-[#1a1714]/70">{errors[key]}</span> : null}
                 </label>
@@ -764,7 +777,7 @@ export function LuvSickApp() {
               <h1 className="text-3xl font-bold">{t.reserveOk}</h1>
               <p>{t.halfLater}</p>
               {trial ? <p className="text-sm text-[#1a1714]/70">{t.practice}</p> : null}
-              <p>{form.name.trim()} · {form.phone.trim()}</p>
+              <p>{form.name.trim()} · {fullPhone(phoneIso, form.phone)}</p>
               <p>{email.trim()}</p>
               <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {paper.deposit}</p>
               <p className="font-bold">{t.invoiceWord} {paper.invoiceNo} · {paper.balance}</p>
@@ -795,7 +808,7 @@ export function LuvSickApp() {
               <p>{t.thanks}</p>
               <div className="grid gap-3 rounded-[2rem] bg-white p-5 text-black">
                 <p className="font-bold">{form.name.trim()}</p>
-                <p className="text-sm">{form.phone.trim()}</p>
+                <p className="text-sm">{fullPhone(phoneIso, form.phone)}</p>
                 <p className="text-sm">{form.address.trim()}, {form.postal.trim()} {form.city.trim()}, {form.country === "AO" ? "Angola" : "Portugal"}</p>
                 <ul className="grid gap-2 border-t border-black/10 pt-3">
                   {lines.map((line) => {
@@ -1246,6 +1259,35 @@ function Story({ lang }: { lang: Lang }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function PhoneField({ iso, local, label, error, onIso, onLocal }: { iso: string; local: string; label: string; error?: string; onIso: (iso: string) => void; onLocal: (value: string) => void }) {
+  const dial = dialOf(iso);
+  return (
+    <label className="grid gap-1 text-sm font-bold">
+      {label}
+      <span className="flex gap-2">
+        <select value={iso} onChange={(event) => onIso(event.target.value)} aria-label={label} className="w-[46%] rounded-2xl border border-[#1a1714]/20 bg-white px-2 py-3 font-normal text-[#1a1714]">
+          {DIALS.map((item) => (
+            <option key={item.iso} value={item.iso}>{item.dial} {item.name}</option>
+          ))}
+        </select>
+        <input
+          value={local}
+          inputMode="tel"
+          autoComplete="tel-national"
+          onChange={(event) => {
+            const code = dial.replace(/\D/g, "");
+            let digits = event.target.value.replace(/\D/g, "");
+            if (digits.startsWith(code) && digits.length > code.length + 4) digits = digits.slice(code.length);
+            onLocal(digits);
+          }}
+          className="min-w-0 flex-1 rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]"
+        />
+      </span>
+      {error ? <span className="font-normal text-[#1a1714]/70">{error}</span> : null}
+    </label>
   );
 }
 
