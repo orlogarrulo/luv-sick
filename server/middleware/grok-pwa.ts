@@ -37,10 +37,6 @@ function requestHost(event: GrokPwaEvent): string {
   );
 }
 
-function escapeAttr(value: string) {
-  return value.replaceAll("&", "&").replaceAll('"', """).replaceAll("<", "<");
-}
-
 function rewriteProductCard(html: string, url: URL, host: string) {
   const id = url.searchParams.get("p")?.trim() ?? "";
   const product = PRODUCTS.find((item) => item.id === id);
@@ -53,11 +49,11 @@ function rewriteProductCard(html: string, url: URL, host: string) {
   return html
     .replace(
       /<meta property="og:title" content="[^"]*">/,
-      `<meta property="og:title" content="${escapeAttr(title)}">`,
+      `<meta property="og:title" content="${title}">`,
     )
     .replace(
       /<meta property="og:image" content="[^"]*">/,
-      `<meta property="og:image" content="${escapeAttr(image)}"><meta property="og:url" content="${escapeAttr(page)}"><meta property="og:description" content="${escapeAttr(description)}"><meta name="twitter:image" content="${escapeAttr(image)}">`,
+      `<meta property="og:image" content="${image}"><meta property="og:url" content="${page}"><meta property="og:description" content="${description}"><meta name="twitter:image" content="${image}">`,
     );
 }
 
