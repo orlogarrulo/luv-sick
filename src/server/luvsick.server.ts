@@ -35,8 +35,27 @@ function allowed(code: string) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) {
+  await sql.query(
+    `create table if not exists luv_reservations (
+      id text primary key,
+      ref text not null,
+      created_at timestamptz not null default now(),
+      customer_name text not null,
+      phone text not null,
+      email text not null,
+      lines text not null,
+      received_sent boolean not null default false,
+      stock_sent boolean not null default false
+    )`,
+  );
+  await sql.query(`create table if not exists luv_flags (key text primary key, value text not null)`);
+  await sql.query(`insert into luv_flags (key, value) values ('stock_in', '0') on conflict (key) do nothing`);
+}
+
 async function ensureStock() {
   const sql = await getSql();
+  await ensureReservationTables(sql);
   for (const product of PRODUCTS) {
     for (const size of SIZES) {
       await sql.query(
@@ -174,13 +193,97 @@ export async function luvDesk(code: string) {
   const coupons = await sql.query<{ code: string; percent: number; active: boolean }>(
     `select code, percent, active from luv_coupons order by created_at desc`,
   );
+  const reservations = await sql.query(`select * from luv_reservations order by created_at desc limit 200`);
+  const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
   return {
     ok: true as const,
     stock,
     orders: orders.map(mapOrder),
     visits,
     coupons: coupons.map((row) => ({ code: row.code, percent: Number(row.percent), active: Boolean(row.active) })),
+    reservations: reservations.map(mapReservation),
+    stockIn: flag[0]?.value === "1",
   };
+}
+
+export type DeskReservation = {
+  id: string;
+  ref: string;
+  createdAt: string;
+  name: string;
+  phone: string;
+  email: string;
+  lines: Need[];
+  receivedSent: boolean;
+  stockSent: boolean;
+};
+
+function mapReservation(row: Record<string, unknown>): DeskReservation {
+  let lines: Need[] = [];
+  try {
+    const parsed = JSON.parse(String(row.lines));
+    if (Array.isArray(parsed)) lines = parsed;
+  } catch {
+    lines = [];
+  }
+  return {
+    id: String(row.id),
+    ref: String(row.ref),
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    name: String(row.customer_name),
+    phone: String(row.phone),
+    email: String(row.email),
+    lines,
+    receivedSent: Boolean(row.received_sent),
+    stockSent: Boolean(row.stock_sent),
+  };
+}
+
+function emailOk(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+export async function luvMode() {
+  const sql = await ensureStock();
+  const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
+  return { stockIn: flag[0]?.value === "1" };
+}
+
+export async function luvReserve(input: { name: string; phone: string; email: string; lines: Need[] }) {
+  const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
+  const email = input.email.trim().toLowerCase();
+  if (!lines.length || !input.name.trim() || input.phone.trim().length < 6 || !emailOk(email)) {
+    return { ok: false as const, error: "form" as const };
+  }
+  const sql = await ensureStock();
+  const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
+  if (flag[0]?.value === "1") return { ok: false as const, error: "closed" as const };
+  const ref = `LR-${randomBytes(2).toString("hex").toUpperCase()}`;
+  const id = randomBytes(8).toString("hex");
+  await sql.query(
+    `insert into luv_reservations (id, ref, customer_name, phone, email, lines) values ($1, $2, $3, $4, $5, $6)`,
+    [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines)],
+  );
+  return { ok: true as const, ref };
+}
+
+export async function luvSetStockIn(code: string, stockIn: boolean) {
+  if (!allowed(code)) return { ok: false as const };
+  const sql = await ensureStock();
+  await sql.query(`insert into luv_flags (key, value) values ('stock_in', $1) on conflict (key) do update set value = excluded.value`, [
+    stockIn ? "1" : "0",
+  ]);
+  return { ok: true as const, stockIn };
+}
+
+export async function luvMarkReservations(code: string, kind: string, ids: string[]) {
+  if (!allowed(code)) return { ok: false as const };
+  const column = kind === "stock" ? "stock_sent" : kind === "received" ? "received_sent" : "";
+  const clean = ids.map((id) => id.replace(/[^a-f0-9]/g, "")).filter((id) => id.length >= 8);
+  if (!column || !clean.length) return { ok: false as const };
+  const sql = await ensureStock();
+  await sql.query(`update luv_reservations set ${column} = true where id = any($1::text[])`, [clean]);
+  return { ok: true as const };
 }
 
 export async function luvAckOrder(code: string, id: string) {

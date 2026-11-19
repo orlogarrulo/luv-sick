@@ -390,3 +390,17 @@ export const luvSaveCoupon = createServerFn({ method: "POST" })
 
 
 
+
+export const luvMode = createServerFn({ method: "POST" }).handler(async () => (await luvApi()).luvMode());
+
+export const luvReserve = createServerFn({ method: "POST" })
+  .validator((data: { name: string; phone: string; email: string; lines: { productId: string; size: string; qty: number }[] }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvReserve(data));
+
+export const luvSetStockIn = createServerFn({ method: "POST" })
+  .validator((data: { code: string; stockIn: boolean }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvSetStockIn(data.code, data.stockIn));
+
+export const luvMarkReservations = createServerFn({ method: "POST" })
+  .validator((data: { code: string; kind: string; ids: string[] }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvMarkReservations(data.code, data.kind, data.ids));

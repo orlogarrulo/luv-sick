@@ -163,6 +163,10 @@ type Dict = {
   wishOn: string;
   wishEmpty: string;
   share: string;
+  reserve: string;
+  reserveOk: string;
+  email: string;
+  emailBad: string;
   added: string;
   qty: string;
   remove: string;
@@ -241,6 +245,10 @@ export const COPY: Record<Lang, Dict> = {
     wishOn: "Guardado",
     wishEmpty: "A lista de desejos está vazia.",
     share: "Partilhar",
+    reserve: "Reservar",
+    reserveOk: "Reserva recebida. As entregas começam a 15 de dezembro.",
+    email: "Email",
+    emailBad: "Escreve um email válido.",
     added: "No saco",
     qty: "Quantidade",
     remove: "Tirar",
@@ -326,6 +334,10 @@ export const COPY: Record<Lang, Dict> = {
     wishOn: "Saved",
     wishEmpty: "Your wishlist is empty.",
     share: "Share",
+    reserve: "Reserve",
+    reserveOk: "Reservation received. Deliveries start on 15 December.",
+    email: "Email",
+    emailBad: "Enter a valid email.",
     added: "In the bag",
     qty: "Quantity",
     remove: "Remove",
@@ -411,6 +423,10 @@ export const COPY: Record<Lang, Dict> = {
     wishOn: "Gardé",
     wishEmpty: "La liste d'envies est vide.",
     share: "Partager",
+    reserve: "Réserver",
+    reserveOk: "Réservation reçue. Les livraisons commencent le 15 décembre.",
+    email: "E-mail",
+    emailBad: "Écris un e-mail valide.",
     added: "Dans le sac",
     qty: "Quantité",
     remove: "Retirer",

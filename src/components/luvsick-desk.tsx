@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PRODUCTS, SIZES } from "@/lib/luvsick";
-import { luvAckOrder, luvDesk, luvIssueReceipt, luvSaveCoupon, luvSetStock } from "@/server/fns";
+import { luvAckOrder, luvDesk, luvIssueReceipt, luvMarkReservations, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number };
 type Line = { productId: string; size: string; qty: number };
@@ -24,12 +24,60 @@ type Order = {
 };
 type Visits = { total: number; countries: { country: string; n: number }[]; cities: { country: string; city: string; n: number }[] };
 type Coupon = { code: string; percent: number; active: boolean };
+type Reservation = {
+  id: string;
+  ref: string;
+  name: string;
+  phone: string;
+  email: string;
+  lines: Line[];
+  receivedSent?: boolean;
+  stockSent?: boolean;
+};
+
+const RECEIVED_ALL = `Olá,
+
+Recebemos a tua reserva na Luv Sick.
+As entregas começam a 15 de dezembro.
+
+Luv Sick`;
+
+const STOCK_ALL = `Olá,
+
+A tua reserva já está disponível. Podes realizar o pagamento.
+
+Luv Sick`;
+
+function lineLabel(lines: Line[]) {
+  return lines
+    .map((line) => {
+      const product = PRODUCTS.find((item) => item.id === line.productId);
+      return `${product?.name.pt ?? line.productId} · ${line.size} · ${line.qty}`;
+    })
+    .join("\n");
+}
+
+function personalMessage(kind: "received" | "stock", name: string, lines: Line[]) {
+  const items = lineLabel(lines);
+  if (kind === "stock") {
+    return `Olá ${name},\n\nA tua reserva já está disponível. Podes realizar o pagamento.\n${items}\n\nLuv Sick`;
+  }
+  return `Olá ${name},\n\nRecebemos a tua reserva na Luv Sick.\n${items}\n\nAs entregas começam a 15 de dezembro.\n\nLuv Sick`;
+}
+
+function waDigits(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("244") || digits.startsWith("351")) return digits;
+  if (digits.length === 9 && digits.startsWith("9")) return `244${digits}`;
+  if (digits.length === 9) return `351${digits}`;
+  return digits;
+}
 
 const KEY = "luvsick-desk";
 
 export function LuvSickDesk() {
   const [code, setCode] = useState("");
-  const [tab, setTab] = useState<"stock" | "orders" | "visits" | "coupons">("stock");
+  const [tab, setTab] = useState<"stock" | "orders" | "visits" | "coupons" | "reserves">("stock");
   const [stock, setStock] = useState<Stock[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [visits, setVisits] = useState<Visits>({ total: 0, countries: [], cities: [] });
@@ -41,6 +89,9 @@ export function LuvSickDesk() {
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState("");
   const [nifDraft, setNifDraft] = useState<Record<string, string>>({});
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [stockIn, setStockIn] = useState(false);
+  const [copied, setCopied] = useState("");
   const told = useRef(new Set<string>());
   const unseen = orders.filter((order) => !order.seen);
 
@@ -57,6 +108,8 @@ export function LuvSickDesk() {
     setOrders(res.orders);
     setVisits(res.visits);
     setCoupons(res.coupons);
+    setReservations(res.reservations ?? []);
+    setStockIn(Boolean(res.stockIn));
     setError("");
     setReady(true);
   }
@@ -122,6 +175,39 @@ export function LuvSickDesk() {
     );
   }
 
+  async function flipStock() {
+    const res = await luvSetStockIn({ data: { code, stockIn: !stockIn } });
+    if (!res.ok) return;
+    setStockIn(res.stockIn);
+  }
+
+  async function copyText(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+    } catch {
+      setCopied("");
+      setError("Não foi possível copiar. Selecciona o texto da mensagem.");
+    }
+  }
+
+  async function sendAll(kind: "received" | "stock") {
+    const targets = reservations.filter((item) => (kind === "stock" ? !item.stockSent : !item.receivedSent));
+    const list = targets.length ? targets : reservations;
+    if (!list.length) return;
+    const body = kind === "stock" ? STOCK_ALL : RECEIVED_ALL;
+    const subject = kind === "stock" ? "Luv Sick · a tua reserva está disponível" : "Luv Sick · reserva recebida";
+    const bcc = list.map((item) => item.email).filter(Boolean).join(",");
+    const marked = await luvMarkReservations({ data: { code, kind, ids: list.map((item) => item.id) } });
+    if (!marked.ok) return;
+    setReservations((current) =>
+      current.map((item) => (list.some((target) => target.id === item.id) ? { ...item, ...(kind === "stock" ? { stockSent: true } : { receivedSent: true }) } : item)),
+    );
+    const link = document.createElement("a");
+    link.href = `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    link.click();
+  }
+
   async function createCoupon(event: FormEvent) {
     event.preventDefault();
     const res = await luvSaveCoupon({ data: { code, coupon, percent: Number(percent) } });
@@ -162,9 +248,9 @@ export function LuvSickDesk() {
           <Link to="/" className="text-sm underline">Loja</Link>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(["stock", "orders", "visits", "coupons"] as const).map((item) => (
+          {(["stock", "orders", "visits", "coupons", "reserves"] as const).map((item) => (
             <button key={item} type="button" onClick={() => setTab(item)} className={`px-3 py-2 text-sm font-bold ${tab === item ? "bg-white text-black" : "ring-1 ring-white"}`}>
-              {item === "stock" ? "Stock" : item === "orders" ? `Encomendas${unseen.length ? ` (${unseen.length})` : ""}` : item === "visits" ? "Visitas" : "Cupões"}
+              {item === "stock" ? "Stock" : item === "orders" ? `Encomendas${unseen.length ? ` (${unseen.length})` : ""}` : item === "visits" ? "Visitas" : item === "coupons" ? "Cupões" : `Reservas${reservations.length ? ` (${reservations.length})` : ""}`}
             </button>
           ))}
           <button type="button" onClick={allowNotices} className="px-3 py-2 text-sm font-bold ring-1 ring-white">Avisos</button>
@@ -235,6 +321,52 @@ export function LuvSickDesk() {
               </li>
             ))}
           </ul>
+        ) : null}
+        {tab === "reserves" ? (
+          <section className="grid gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 text-black">
+              <p className="text-sm">{stockIn ? "Stock confirmado. A loja já aceita pagamento." : "À espera das peças da fábrica. A loja só aceita reservas."}</p>
+              <button type="button" onClick={flipStock} className="bg-black px-3 py-2 text-sm font-bold text-white">
+                {stockIn ? "Voltar a só reservas" : "Confirmar que o stock chegou"}
+              </button>
+            </div>
+            <article className="grid gap-2 bg-white p-3 text-sm text-black">
+              <h2 className="font-bold">Mensagem de receção</h2>
+              <p>Para todos os que reservaram. As entregas começam a 15 de dezembro.</p>
+              <pre className="whitespace-pre-wrap font-sans">{RECEIVED_ALL}</pre>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => sendAll("received")} className="bg-black px-3 py-2 font-bold text-white">Enviar a todos por email</button>
+                <button type="button" onClick={() => copyText("receção", RECEIVED_ALL)} className="px-3 py-2 font-bold ring-1 ring-black">Copiar mensagem</button>
+              </div>
+            </article>
+            <article className={`grid gap-2 bg-white p-3 text-sm text-black ${stockIn ? "" : "opacity-60"}`}>
+              <h2 className="font-bold">Mensagem de stock</h2>
+              <p>Quando o stock está confirmado: a reserva já está disponível e podem pagar.</p>
+              <pre className="whitespace-pre-wrap font-sans">{STOCK_ALL}</pre>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={!stockIn} onClick={() => sendAll("stock")} className="bg-black px-3 py-2 font-bold text-white disabled:opacity-40">Enviar lembrete a todos</button>
+                <button type="button" onClick={() => copyText("stock", STOCK_ALL)} className="px-3 py-2 font-bold ring-1 ring-black">Copiar mensagem</button>
+              </div>
+            </article>
+            {copied ? <p className="text-sm text-white/70">Mensagem copiada: {copied}.</p> : null}
+            {reservations.length === 0 ? <p>Ainda não há reservas.</p> : null}
+            <ul className="grid gap-2">
+              {reservations.map((item) => {
+                const note = personalMessage(stockIn ? "stock" : "received", item.name, item.lines);
+                const qty = item.lines.reduce((sum, line) => sum + line.qty, 0);
+                return (
+                  <li key={item.id} className="grid gap-2 bg-white p-3 text-sm text-black">
+                    <p className="font-bold">{item.ref} · {item.name}</p>
+                    <p>{item.phone} · {item.email}</p>
+                    <p>{lineLabel(item.lines)} · {qty}</p>
+                    <p className="text-black/60">{item.receivedSent ? "Receção enviada. " : ""}{item.stockSent ? "Lembrete de stock enviado." : ""}</p>
+                    <pre className="whitespace-pre-wrap font-sans">{note}</pre>
+                    <a href={`https://wa.me/${waDigits(item.phone)}?text=${encodeURIComponent(note)}`} target="_blank" rel="noreferrer" className="font-bold underline">WhatsApp desta pessoa</a>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         ) : null}
         {tab === "visits" ? (
           <section className="grid gap-4">

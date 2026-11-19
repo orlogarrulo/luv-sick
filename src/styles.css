@@ -144,3 +144,7 @@ html[data-theme="night"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+.btn-enter {
+  border-radius: 9999px;
+}

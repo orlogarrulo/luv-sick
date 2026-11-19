@@ -17,10 +17,10 @@ import {
   type Market,
   type Product,
 } from "@/lib/luvsick";
-import { luvCheckCoupon, luvPlace, luvStock, luvVisit } from "@/server/fns";
+import { luvCheckCoupon, luvMode, luvPlace, luvReserve, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
-type View = "splash" | "shop" | "product" | "bag" | "checkout" | "sent";
+type View = "splash" | "shop" | "product" | "bag" | "reserve" | "checkout" | "sent";
 type Form = { name: string; phone: string; address: string; city: string; country: "AO" | "PT"; postal: string };
 
 const BAG_KEY = "luvsick-bag";
@@ -90,6 +90,9 @@ export function LuvSickApp() {
   const [soundOn, setSoundOn] = useState(false);
   const [wish, setWish] = useState<string[]>([]);
   const [wishOnly, setWishOnly] = useState(false);
+  const [stockIn, setStockIn] = useState(false);
+  const [email, setEmail] = useState("");
+  const [kind, setKind] = useState<"order" | "reserve">("order");
   const sound = useRef<HTMLAudioElement | null>(null);
   const t = COPY[lang];
   const product = productById(productId) ?? PRODUCTS[0];
@@ -161,6 +164,9 @@ export function LuvSickApp() {
         setStockKnown(true);
       })
       .catch(() => setStockKnown(false));
+    luvMode()
+      .then((mode) => setStockIn(mode.stockIn))
+      .catch(() => setStockIn(false));
   }, []);
 
   useEffect(() => {
@@ -242,7 +248,7 @@ export function LuvSickApp() {
   }
 
   function addProduct(productId: string, nextSize: string) {
-    if (available(productId, nextSize) - inBag(productId, nextSize) < 1) {
+    if (stockIn && available(productId, nextSize) - inBag(productId, nextSize) < 1) {
       setOrderError(t.noStock);
       return;
     }
@@ -266,7 +272,7 @@ export function LuvSickApp() {
       current.flatMap((line, i) => {
         if (i !== index) return [line];
         if (qty < 1) return [];
-        return [{ ...line, qty: Math.min(qty, available(line.productId, line.size)) }];
+        return [{ ...line, qty: stockIn ? Math.min(qty, available(line.productId, line.size)) : qty }];
       }),
     );
   }
@@ -300,6 +306,30 @@ export function LuvSickApp() {
       "",
       t.orderLead,
     ].join("\n");
+  }
+
+
+  async function submitReserve(event: FormEvent) {
+    event.preventDefault();
+    const next: Partial<Form> = {};
+    if (!form.name.trim()) next.name = t.required;
+    if (!form.phone.trim()) next.phone = t.required;
+    setErrors(next);
+    const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    if (Object.keys(next).length || !mailOk || lines.length === 0) {
+      if (!mailOk) setOrderError(t.emailBad);
+      return;
+    }
+    const placed = await luvReserve({ data: { lines, name: form.name, phone: form.phone, email } });
+    if (!placed.ok) {
+      setOrderError(placed.error === "closed" ? t.buy : t.required);
+      if (placed.error === "closed") setStockIn(true);
+      return;
+    }
+    setRefCode(placed.ref);
+    setOrderError("");
+    setKind("reserve");
+    setView("sent");
   }
 
   async function submitOrder(event: FormEvent) {
@@ -340,6 +370,7 @@ export function LuvSickApp() {
     }
     setRefCode(placed.ref);
     setOrderError("");
+    setKind("order");
     setView("sent");
   }
 
@@ -352,7 +383,7 @@ export function LuvSickApp() {
             <button
               type="button"
               onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }}
-              className="rounded-full border border-white bg-black px-10 py-3 text-[11px] font-medium tracking-[0.18em] text-white uppercase"
+              className="btn-enter rounded-full border border-white bg-black px-10 py-3 text-[11px] font-medium tracking-[0.18em] text-white uppercase" style={{ borderRadius: "9999px" }}
             >
               {t.enter}
             </button>
@@ -473,7 +504,7 @@ export function LuvSickApp() {
                 </div>
               </section>
               <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
-              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => addProduct(id, "M")} />
+              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} stockIn={stockIn} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => addProduct(id, "M")} />
             </>
           ) : null}
           {view === "product" ? (
@@ -487,12 +518,39 @@ export function LuvSickApp() {
               onSize={setSize}
               onAdd={addCurrent}
               left={available(product.id, size)}
+              selling={stockIn}
               wished={wish.includes(product.id)}
               onWish={() => toggleWish(product.id)}
               onShare={() => shareProduct(product.id)}
             />
           ) : null}
-          {view === "bag" ? <BagView lines={lines} lang={lang} market={market} priced={priced} onQty={setQty} onCheckout={() => setView("checkout")} /> : null}
+          {view === "bag" ? <BagView lines={lines} lang={lang} market={market} priced={priced} actionLabel={stockIn ? t.checkout : t.reserve} onQty={setQty} onCheckout={() => setView(stockIn ? "checkout" : "reserve")} /> : null}
+          {view === "reserve" ? (
+            <form onSubmit={submitReserve} className="mx-auto grid max-w-lg gap-3 px-4 py-6">
+              <h1 className="text-3xl font-bold">{t.reserve}</h1>
+              <p className="text-sm text-[#1a1714]/70">{t.reserveOk}</p>
+              <ul className="grid gap-2">
+                {lines.map((line) => {
+                  const item = productById(line.productId);
+                  if (!item) return null;
+                  return <li key={`${line.productId}-${line.size}`} className="text-sm">{item.name[lang]} · {line.size} · {line.qty}</li>;
+                })}
+              </ul>
+              {(["name", "phone"] as const).map((key) => (
+                <label key={key} className="grid gap-1 text-sm font-bold">
+                  {t[key]}
+                  <input value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                  {errors[key] ? <span className="font-normal text-[#1a1714]/70">{errors[key]}</span> : null}
+                </label>
+              ))}
+              <label className="grid gap-1 text-sm font-bold">
+                {t.email}
+                <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+              </label>
+              {orderError ? <p className="text-sm">{orderError}</p> : null}
+              <button className="btn-brown w-fit rounded-full px-5 py-3">{t.reserve}</button>
+            </form>
+          ) : null}
           {view === "checkout" ? (
             <form onSubmit={submitOrder} className="mx-auto grid max-w-lg gap-3 px-4 py-6">
               <h1 className="text-3xl font-bold">{t.checkout}</h1>
@@ -559,7 +617,23 @@ export function LuvSickApp() {
               <button className="btn-brown rounded-full px-4 py-3">{t.send}</button>
             </form>
           ) : null}
-          {view === "sent" ? (
+          {view === "sent" && kind === "reserve" ? (
+            <section className="mx-auto grid max-w-lg gap-4 px-4 py-8">
+              <p className="text-sm font-bold tracking-[0.18em] uppercase text-[#1a1714]/70">{refCode}</p>
+              <h1 className="text-3xl font-bold">{t.reserveOk}</h1>
+              <p>{form.name.trim()} · {form.phone.trim()}</p>
+              <p>{email.trim()}</p>
+              <ul className="grid gap-2">
+                {lines.map((line) => {
+                  const item = productById(line.productId);
+                  if (!item) return null;
+                  return <li key={`${line.productId}-${line.size}`}>{item.name[lang]} · {line.size} · {line.qty}</li>;
+                })}
+              </ul>
+              <button type="button" onClick={() => { setLines([]); setKind("order"); setView("shop"); }} className="text-sm underline">{t.continueShop}</button>
+            </section>
+          ) : null}
+          {view === "sent" && kind === "order" ? (
             <section className="mx-auto grid max-w-lg gap-4 px-4 py-8">
               <p className="text-sm font-bold tracking-[0.18em] uppercase text-[#1a1714]/70">{t.successTitle}</p>
               <h1 className="text-4xl font-bold">{refCode}</h1>
@@ -755,7 +829,7 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
   );
 }
 
-function Catalog({ market, lang, stock, known, wish, wishOnly, onWish, onShare, onOpen, onBuy }: { market: Market; lang: Lang; stock: Record<string, number>; known: boolean; wish: string[]; wishOnly: boolean; onWish: (id: string) => void; onShare: (id: string) => void; onOpen: (id: string) => void; onBuy: (id: string) => void }) {
+function Catalog({ market, lang, stock, known, stockIn, wish, wishOnly, onWish, onShare, onOpen, onBuy }: { market: Market; lang: Lang; stock: Record<string, number>; known: boolean; stockIn: boolean; wish: string[]; wishOnly: boolean; onWish: (id: string) => void; onShare: (id: string) => void; onOpen: (id: string) => void; onBuy: (id: string) => void }) {
   const t = COPY[lang];
   const items = wishOnly ? PRODUCTS.filter((item) => wish.includes(item.id)) : PRODUCTS;
   return (
@@ -763,7 +837,7 @@ function Catalog({ market, lang, stock, known, wish, wishOnly, onWish, onShare, 
       <h2 className="text-xs tracking-[0.28em] uppercase sm:col-span-3">{wishOnly ? t.wish : t.arrivals}</h2>
       {items.length === 0 && wishOnly ? <p className="sm:col-span-3">{t.wishEmpty}</p> : null}
       {items.map((item) => {
-        const gone = known && SIZES.every((size) => (stock[`${item.id}|${size}`] ?? 0) <= 0);
+        const gone = stockIn && known && SIZES.every((size) => (stock[`${item.id}|${size}`] ?? 0) <= 0);
         const saved = wish.includes(item.id);
         return (
           <article key={item.id} className="grid text-left text-[#1a1714]">
@@ -775,7 +849,7 @@ function Catalog({ market, lang, stock, known, wish, wishOnly, onWish, onShare, 
               <p className="text-sm">{gone ? t.soldOut : formatMoney(item, market)}</p>
               <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={() => onBuy(item.id)} disabled={gone} className="btn-brown w-fit rounded-full px-5 py-2 disabled:bg-[#1a1714]/30">
-                  {gone ? t.soldOut : t.buy}
+                  {gone ? t.soldOut : stockIn ? t.buy : t.reserve}
                 </button>
                 <button type="button" onClick={() => onWish(item.id)} aria-pressed={saved} aria-label={saved ? t.wishOn : t.wish} className="grid size-10 place-items-center rounded-full ring-1 ring-[#1a1714]">
                   <HeartIcon on={saved} />
@@ -802,6 +876,7 @@ function ProductView({
   onSize,
   onAdd,
   left,
+  selling,
   wished,
   onWish,
   onShare,
@@ -815,6 +890,7 @@ function ProductView({
   onSize: (size: string) => void;
   onAdd: () => void;
   left: number;
+  selling: boolean;
   wished: boolean;
   onWish: () => void;
   onShare: () => void;
@@ -852,7 +928,7 @@ function ProductView({
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={onAdd} disabled={left < 1} className="btn-brown w-fit rounded-full px-5 py-3">{left < 1 ? t.soldOut : t.add}</button>
+        <button type="button" onClick={onAdd} disabled={selling && left < 1} className="btn-brown w-fit rounded-full px-5 py-3">{selling && left < 1 ? t.soldOut : selling ? t.add : t.reserve}</button>
         <button type="button" onClick={onWish} aria-pressed={wished} aria-label={wished ? t.wishOn : t.wish} className="grid size-11 place-items-center rounded-full ring-1 ring-[#1a1714]">
           <HeartIcon on={wished} />
         </button>
@@ -872,6 +948,7 @@ function BagView({
   priced,
   onQty,
   onCheckout,
+  actionLabel,
 }: {
   lines: Line[];
   lang: Lang;
@@ -879,6 +956,7 @@ function BagView({
   priced: ReturnType<typeof quote>;
   onQty: (index: number, qty: number) => void;
   onCheckout: () => void;
+  actionLabel: string;
 }) {
   const t = COPY[lang];
   return (
@@ -916,7 +994,7 @@ function BagView({
         <>
           <Totals lang={lang} market={market} priced={priced} />
           {!priced.tracksuitDeal && lines.some((line) => line.productId.startsWith("tracksuit-")) ? <p className="text-sm text-[#1a1714]/70">{t.tracksuitSoon}</p> : null}
-          <button type="button" onClick={onCheckout} className="btn-brown w-fit rounded-full px-5 py-3">{t.checkout}</button>
+          <button type="button" onClick={onCheckout} className="btn-brown w-fit rounded-full px-5 py-3">{actionLabel}</button>
         </>
       ) : null}
     </section>
