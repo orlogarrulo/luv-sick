@@ -3,6 +3,7 @@ import {
   COPY,
   LANGS,
   PAY,
+  PRACTICE_EMAIL,
   PRODUCTS,
   SHOP_EMAIL,
   SIZES,
@@ -95,6 +96,7 @@ export function LuvSickApp() {
   const [email, setEmail] = useState("");
   const [kind, setKind] = useState<"order" | "reserve">("order");
   const [paper, setPaper] = useState({ deposit: "", balance: "", total: "", receiptNo: "", invoiceNo: "", emailed: false });
+  const [trial, setTrial] = useState(false);
   const sound = useRef<HTMLAudioElement | null>(null);
   const t = COPY[lang];
   const product = productById(productId) ?? PRODUCTS[0];
@@ -330,6 +332,7 @@ export function LuvSickApp() {
       return;
     }
     setRefCode(placed.ref);
+    setTrial(email.trim().toLowerCase() === PRACTICE_EMAIL);
     setPaper({
       deposit: placed.depositLabel,
       balance: placed.balanceLabel,
@@ -366,6 +369,7 @@ export function LuvSickApp() {
         market,
         pay,
         coupon: couponPercent ? coupon : "",
+        email,
       },
     });
     if (!placed.ok) {
@@ -380,6 +384,15 @@ export function LuvSickApp() {
       return;
     }
     setRefCode(placed.ref);
+    setTrial(placed.trial);
+    setPaper({
+      deposit: placed.totalLabel,
+      balance: placed.totalLabel,
+      total: placed.totalLabel,
+      receiptNo: placed.receiptNo,
+      invoiceNo: placed.invoiceNo,
+      emailed: false,
+    });
     setOrderError("");
     setKind("order");
     setView("sent");
@@ -592,6 +605,10 @@ export function LuvSickApp() {
                 </label>
               ))}
               <label className="grid gap-1 text-sm font-bold">
+                {t.email}
+                <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]" autoComplete="email" />
+              </label>
+              <label className="grid gap-1 text-sm font-bold">
                 {t.country}
                 <select
                   value={form.country}
@@ -647,6 +664,7 @@ export function LuvSickApp() {
               <p className="text-sm font-bold tracking-[0.18em] uppercase text-[#1a1714]/70">{refCode}</p>
               <h1 className="text-3xl font-bold">{t.reserveOk}</h1>
               <p>{t.halfLater}</p>
+              {trial ? <p className="text-sm text-[#1a1714]/70">{t.practice}</p> : null}
               <p>{form.name.trim()} · {form.phone.trim()}</p>
               <p>{email.trim()}</p>
               <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {paper.deposit}</p>
@@ -689,8 +707,11 @@ export function LuvSickApp() {
                 <p className="border-t border-black/10 pt-3 text-sm">{t.pay}: <span className="font-bold">{PAY[market].find((item) => item.id === pay)?.label}</span></p>
                 <p className="text-lg font-bold">{t.total} {totalLabel}</p>
               </div>
-              <p className="text-sm text-[#1a1714]/70">{t.sentNote}</p>
-              <a href={`/recibo/${refCode}`} className="text-sm underline">Talão de compra</a>
+              <p className="text-sm text-[#1a1714]/70">{trial ? t.practice : t.sentNote}</p>
+              {trial ? (
+                <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {t.invoiceWord} {paper.invoiceNo}</p>
+              ) : null}
+              <a href={`/recibo/${refCode}`} className="text-sm underline">{trial ? `${t.receiptWord} · ${t.invoiceWord}` : "Talão de compra"}</a>
               <a href={waLink(market, orderText(refCode))} target="_blank" rel="noreferrer" className="btn-brown rounded-full px-4 py-3 text-center">
                 {t.whatsapp} · {WA[market].label}
               </a>

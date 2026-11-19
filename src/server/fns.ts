@@ -352,6 +352,7 @@ export const luvPlace = createServerFn({ method: "POST" })
       market: string;
       pay: string;
       coupon: string;
+      email?: string;
     }) => data,
   )
   .handler(async ({ data }) => (await luvApi()).luvPlace(data));

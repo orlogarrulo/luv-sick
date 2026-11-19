@@ -4,6 +4,7 @@ export type Market = "PT" | "AO";
 export const LANGS: Lang[] = ["pt", "en", "fr"];
 export const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 export const SHOP_EMAIL = "";
+export const PRACTICE_EMAIL = "arrulo.orlog@gmail.com";
 const UNIT_KZ = 1350;
 
 export type Product = {
@@ -175,6 +176,7 @@ type Dict = {
   receiptWord: string;
   invoiceWord: string;
   mailed: string;
+  practice: string;
   email: string;
   emailBad: string;
   added: string;
@@ -262,6 +264,7 @@ export const COPY: Record<Lang, Dict> = {
     receiptWord: "Recibo",
     invoiceWord: "Fatura",
     mailed: "Enviámos o recibo e a fatura para o teu email.",
+    practice: "Conta de ensaio. O stock e os totais da loja não mudam.",
     email: "Email",
     emailBad: "Escreve um email válido.",
     added: "No saco",
@@ -356,6 +359,7 @@ export const COPY: Record<Lang, Dict> = {
     receiptWord: "Receipt",
     invoiceWord: "Invoice",
     mailed: "We sent the receipt and the invoice to your email.",
+    practice: "Practice account. Stock and shop totals stay unchanged.",
     email: "Email",
     emailBad: "Enter a valid email.",
     added: "In the bag",
@@ -450,6 +454,7 @@ export const COPY: Record<Lang, Dict> = {
     receiptWord: "Reçu",
     invoiceWord: "Facture",
     mailed: "Nous avons envoyé le reçu et la facture à ton e-mail.",
+    practice: "Compte d'essai. Le stock et les totaux de la boutique ne changent pas.",
     email: "E-mail",
     emailBad: "Écris un e-mail valide.",
     added: "Dans le sac",

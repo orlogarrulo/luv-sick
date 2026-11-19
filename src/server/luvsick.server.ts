@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { getSql } from "@/lib/db";
-import { PAY, PRODUCTS, SIZES, formatAmount, quote, splitHalf, type Market } from "@/lib/luvsick";
+import { PAY, PRACTICE_EMAIL, PRODUCTS, SIZES, formatAmount, quote, splitHalf, type Market } from "@/lib/luvsick";
 
 const START_QTY = 5;
 const DESK_CODE = process.env.LUVSICK_DESK_CODE?.trim() || "LuvSick-1847";
@@ -27,6 +27,9 @@ export type DeskOrder = {
   paidAt: string;
   nif: string;
   receiptNo: string;
+  email: string;
+  trial: boolean;
+  invoiceNo: string;
 };
 
 function allowed(code: string) {
@@ -59,6 +62,10 @@ async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) 
   await sql.query(`alter table luv_reservations add column if not exists receipt_no text not null default ''`);
   await sql.query(`alter table luv_reservations add column if not exists invoice_no text not null default ''`);
   await sql.query(`alter table luv_reservations add column if not exists emailed_at timestamptz`);
+  await sql.query(`alter table luv_reservations add column if not exists trial boolean not null default false`);
+  await sql.query(`alter table luv_orders add column if not exists email text not null default ''`);
+  await sql.query(`alter table luv_orders add column if not exists trial boolean not null default false`);
+  await sql.query(`alter table luv_orders add column if not exists invoice_no text not null default ''`);
 }
 
 async function ensureStock() {
@@ -83,6 +90,10 @@ export async function luvStock(): Promise<StockRow[]> {
   return rows.map((row) => ({ productId: row.product_id, size: row.size, qty: Number(row.qty) }));
 }
 
+function practiceEmail(value: string) {
+  return value.trim().toLowerCase() === PRACTICE_EMAIL;
+}
+
 function postalOk(country: string, postal: string) {
   const value = postal.trim();
   if (country === "PT") return /^\d{4}-\d{3}$/.test(value);
@@ -100,6 +111,7 @@ export async function luvPlace(input: {
   market: string;
   pay: string;
   coupon: string;
+  email?: string;
 }) {
   const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const country = input.country === "AO" || input.country === "PT" ? input.country : "";
@@ -116,8 +128,38 @@ export async function luvPlace(input: {
     percent = Number(found[0].percent);
   }
   const priced = quote(lines, market, percent);
+  const totalLabel = formatAmount(priced.total, market);
   const ref = `LS-${randomBytes(2).toString("hex").toUpperCase()}`;
   const id = randomBytes(8).toString("hex");
+  const email = (input.email ?? "").trim().toLowerCase();
+  if (practiceEmail(email)) {
+    const code = ref.slice(3);
+    const receiptNo = `TL-${code}`;
+    const invoiceNo = `FT-${code}`;
+    await sql.query(
+      `insert into luv_orders (id, ref, customer_name, phone, address, city, country, postal, market, pay, total_label, lines, coupon, email, trial, paid_at, receipt_no, invoice_no, seen)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true, now(), $15, $16, true)`,
+      [
+        id,
+        ref,
+        input.name.trim(),
+        input.phone.trim(),
+        input.address.trim(),
+        input.city.trim(),
+        country,
+        input.postal.trim(),
+        market,
+        input.pay,
+        totalLabel,
+        JSON.stringify(lines),
+        asked,
+        email,
+        receiptNo,
+        invoiceNo,
+      ],
+    );
+    return { ok: true as const, ref, totalLabel, trial: true as const, receiptNo, invoiceNo };
+  }
   const placed = await sql.query<{ ref: string }>(
     `with need as (
        select product_id, size, qty from jsonb_to_recordset($1::jsonb) as x(product_id text, size text, qty int)
@@ -159,7 +201,7 @@ export async function luvPlace(input: {
     ],
   );
   if (!placed.length) return { ok: false as const, error: "stock" as const };
-  return { ok: true as const, ref: placed[0].ref, totalLabel: formatAmount(priced.total, market) };
+  return { ok: true as const, ref: placed[0].ref, totalLabel, trial: false as const, receiptNo: "", invoiceNo: "" };
 }
 
 function mapOrder(row: Record<string, unknown>): DeskOrder {
@@ -189,6 +231,9 @@ function mapOrder(row: Record<string, unknown>): DeskOrder {
     paidAt: row.paid_at ? (row.paid_at instanceof Date ? row.paid_at.toISOString() : String(row.paid_at)) : "",
     nif: String(row.nif ?? ""),
     receiptNo: String(row.receipt_no ?? ""),
+    email: String(row.email ?? ""),
+    trial: Boolean(row.trial),
+    invoiceNo: String(row.invoice_no ?? ""),
   };
 }
 
@@ -232,6 +277,7 @@ export type DeskReservation = {
   receiptNo: string;
   invoiceNo: string;
   emailed: boolean;
+  trial: boolean;
 };
 
 function mapReservation(row: Record<string, unknown>): DeskReservation {
@@ -260,6 +306,7 @@ function mapReservation(row: Record<string, unknown>): DeskReservation {
     receiptNo: String(row.receipt_no ?? ""),
     invoiceNo: String(row.invoice_no ?? ""),
     emailed: Boolean(row.emailed_at),
+    trial: Boolean(row.trial),
   };
 }
 
@@ -348,10 +395,11 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   const code = ref.slice(3);
   const receiptNo = `RC-${code}`;
   const invoiceNo = `FT-${code}`;
+  const trial = practiceEmail(email);
   await sql.query(
-    `insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-    [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines), totalLabel, depositLabel, balanceLabel, pay, market, receiptNo, invoiceNo],
+    `insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines), totalLabel, depositLabel, balanceLabel, pay, market, receiptNo, invoiceNo, trial],
   );
   const paper: DeskReservation = {
     id,
@@ -371,6 +419,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
     receiptNo,
     invoiceNo,
     emailed: false,
+    trial,
   };
   const emailed = await mailCustomer(email, `Luv Sick · ${ref} · recibo e fatura`, reserveLetter(paper));
   if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);

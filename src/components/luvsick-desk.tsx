@@ -21,6 +21,8 @@ type Order = {
   paidAt?: string;
   nif?: string;
   receiptNo?: string;
+  trial?: boolean;
+  invoiceNo?: string;
 };
 type Visits = { total: number; countries: { country: string; n: number }[]; cities: { country: string; city: string; n: number }[] };
 type Coupon = { code: string; percent: number; active: boolean };
@@ -40,6 +42,7 @@ type Reservation = {
   receiptNo?: string;
   invoiceNo?: string;
   emailed?: boolean;
+  trial?: boolean;
 };
 
 const RECEIVED_ALL = `Olá,
@@ -312,7 +315,7 @@ export function LuvSickDesk() {
             {orders.length === 0 ? <li>Ainda não há encomendas.</li> : null}
             {orders.map((order) => (
               <li key={order.id} className="grid gap-2 bg-white p-3 text-sm text-black">
-                <p className="font-bold">{order.ref} · {order.totalLabel}</p>
+                <p className="font-bold">{order.ref} · {order.totalLabel}{order.trial ? " · Ensaio" : ""}</p>
                 <p>{order.name} · {order.phone} · {order.postal} {order.city} · {order.country}</p>
                 <p>{order.pay}{order.coupon ? ` · ${order.coupon}` : ""}</p>
                 <label className="grid gap-1">
@@ -369,7 +372,7 @@ export function LuvSickDesk() {
                 const qty = item.lines.reduce((sum, line) => sum + line.qty, 0);
                 return (
                   <li key={item.id} className="grid gap-2 bg-white p-3 text-sm text-black">
-                    <p className="font-bold">{item.ref} · {item.name}</p>
+                    <p className="font-bold">{item.ref} · {item.name}{item.trial ? " · Ensaio" : ""}</p>
                     <p>{item.phone} · {item.email}</p>
                     <p>{lineLabel(item.lines)} · {qty}</p>
                     {item.depositLabel ? <p>Pago 50%: {item.depositLabel}{item.pay ? ` · ${item.pay}` : ""}</p> : null}
