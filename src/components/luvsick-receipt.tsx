@@ -115,7 +115,7 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
             <Lines lines={paper.lines} />
             <p>Restante 50% de {paper.totalLabel}</p>
             <p className="text-lg font-bold">{paper.balanceLabel}</p>
-            <p>Data de pagamento: a combinar, no dia do recebimento.</p>
+            <p>Data de pagamento: no dia do envio.</p>
             <p className="text-center text-xs tracking-[0.16em]">EM ABERTO · LUV SICK</p>
           </article>
         </div>

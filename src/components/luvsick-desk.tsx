@@ -49,7 +49,7 @@ const RECEIVED_ALL = `Olá,
 
 Recebemos a tua reserva na Luv Sick.
 Pagaste 50%. O recibo e a fatura dos outros 50% seguem por email.
-Os outros 50% pagam-se no dia do recebimento, data a combinar.
+Os outros 50% pagam-se no dia do envio.
 As entregas começam a 15 de dezembro.
 
 Luv Sick`;
@@ -57,7 +57,7 @@ Luv Sick`;
 const STOCK_ALL = `Olá,
 
 A tua reserva já pode ser entregue.
-O restante de 50% paga-se no dia do recebimento, data a combinar.
+O restante de 50% paga-se no dia do envio.
 
 Luv Sick`;
 
@@ -73,8 +73,8 @@ function lineLabel(lines: Line[]) {
 function personalMessage(kind: "received" | "stock", item: Reservation) {
   const items = lineLabel(item.lines);
   const money = item.depositLabel
-    ? `Pago agora (50%): ${item.depositLabel}\nRestante (50%): ${item.balanceLabel}\nData de pagamento do restante: a combinar, no dia do recebimento.`
-    : "Os outros 50% pagam-se no dia do recebimento, data a combinar.";
+    ? `Pago agora (50%): ${item.depositLabel}\nRestante (50%): ${item.balanceLabel}\nData de pagamento do restante: no dia do envio.`
+    : "Os outros 50% pagam-se no dia do envio.";
   if (kind === "stock") {
     return `Olá ${item.name},\n\nA tua reserva já pode ser entregue.\n${items}\n${money}\n\nLuv Sick`;
   }
@@ -376,7 +376,7 @@ export function LuvSickDesk() {
                     <p>{item.phone} · {item.email}</p>
                     <p>{lineLabel(item.lines)} · {qty}</p>
                     {item.depositLabel ? <p>Pago 50%: {item.depositLabel}{item.pay ? ` · ${item.pay}` : ""}</p> : null}
-                    {item.balanceLabel ? <p>Fatura 50%: {item.balanceLabel} · a combinar, no dia do recebimento</p> : null}
+                    {item.balanceLabel ? <p>Fatura 50%: {item.balanceLabel} · no dia do envio</p> : null}
                     <p className="text-black/60">{item.receivedSent ? "Receção enviada. " : ""}{item.stockSent ? "Lembrete de stock enviado. " : ""}{item.emailed ? "Email enviado." : "Email por enviar."}</p>
                     <pre className="whitespace-pre-wrap font-sans">{note}</pre>
                     <a href={`https://wa.me/${waDigits(item.phone)}?text=${encodeURIComponent(note)}`} target="_blank" rel="noreferrer" className="font-bold underline">WhatsApp desta pessoa</a>

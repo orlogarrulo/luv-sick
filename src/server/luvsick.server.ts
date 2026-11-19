@@ -112,6 +112,7 @@ export async function luvPlace(input: {
   pay: string;
   coupon: string;
   email?: string;
+  lang?: string;
 }) {
   const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const country = input.country === "AO" || input.country === "PT" ? input.country : "";
@@ -132,6 +133,16 @@ export async function luvPlace(input: {
   const ref = `LS-${randomBytes(2).toString("hex").toUpperCase()}`;
   const id = randomBytes(8).toString("hex");
   const email = (input.email ?? "").trim().toLowerCase();
+  if (!emailOk(email)) return { ok: false as const, error: "form" as const };
+  const profile = {
+    email,
+    name: input.name,
+    phone: input.phone,
+    address: input.address,
+    city: input.city,
+    country,
+    postal: input.postal,
+  };
   if (practiceEmail(email)) {
     const code = ref.slice(3);
     const receiptNo = `TL-${code}`;
@@ -158,7 +169,8 @@ export async function luvPlace(input: {
         invoiceNo,
       ],
     );
-    return { ok: true as const, ref, totalLabel, trial: true as const, receiptNo, invoiceNo };
+    const codeSent = await openCustomer(profile, input.lang ?? "pt");
+    return { ok: true as const, ref, totalLabel, trial: true as const, receiptNo, invoiceNo, codeSent };
   }
   const placed = await sql.query<{ ref: string }>(
     `with need as (
@@ -177,8 +189,8 @@ export async function luvPlace(input: {
        returning 1
      ),
      ins as (
-       insert into luv_orders (id, ref, customer_name, phone, address, city, country, postal, market, pay, total_label, lines, coupon)
-       select $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+       insert into luv_orders (id, ref, customer_name, phone, address, city, country, postal, market, pay, total_label, lines, coupon, email)
+       select $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
        from gate where good
        returning ref
      )
@@ -198,10 +210,12 @@ export async function luvPlace(input: {
       formatAmount(priced.total, market),
       JSON.stringify(lines),
       asked,
+      email,
     ],
   );
   if (!placed.length) return { ok: false as const, error: "stock" as const };
-  return { ok: true as const, ref: placed[0].ref, totalLabel, trial: false as const, receiptNo: "", invoiceNo: "" };
+  const codeSent = await openCustomer(profile, input.lang ?? "pt");
+  return { ok: true as const, ref: placed[0].ref, totalLabel, trial: false as const, receiptNo: "", invoiceNo: "", codeSent };
 }
 
 function mapOrder(row: Record<string, unknown>): DeskOrder {
@@ -337,7 +351,7 @@ function reserveLetter(row: DeskReservation) {
     "",
     "Recebemos a tua reserva na Luv Sick.",
     "Pagaste 50% agora. Segue o recibo.",
-    "A fatura dos outros 50% tem pagamento a combinar, no dia do recebimento.",
+    "A fatura dos outros 50% paga-se no dia do envio.",
     "As entregas começam a 15 de dezembro.",
     "",
     `Reserva ${row.ref}`,
@@ -349,7 +363,7 @@ function reserveLetter(row: DeskReservation) {
     "",
     `FATURA ${row.invoiceNo}`,
     `Em aberto (50%): ${row.balanceLabel}`,
-    "Data de pagamento: a combinar, no dia do recebimento.",
+    "Data de pagamento: no dia do envio.",
     "",
     `Total da reserva: ${row.totalLabel}`,
     `Documentos: https://luvsickstore.com/recibo/${row.ref}`,
@@ -374,7 +388,186 @@ async function mailCustomer(to: string, subject: string, body: string) {
   }
 }
 
-export async function luvReserve(input: { name: string; phone: string; email: string; lines: Need[]; pay: string; market: string }) {
+type CustomerProfile = {
+  email: string;
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  country: string;
+  postal: string;
+};
+
+async function ensureCustomers(sql: Awaited<ReturnType<typeof getSql>>) {
+  await sql.query(
+    `create table if not exists luv_customers (
+      email text primary key,
+      name text not null default '',
+      phone text not null default '',
+      address text not null default '',
+      city text not null default '',
+      country text not null default '',
+      postal text not null default '',
+      created_at timestamptz not null default now()
+    )`,
+  );
+  await sql.query(
+    `create table if not exists luv_login_codes (
+      email text primary key,
+      code text not null,
+      expires_at timestamptz not null
+    )`,
+  );
+  await sql.query(
+    `create table if not exists luv_sessions (
+      token text primary key,
+      email text not null,
+      created_at timestamptz not null default now()
+    )`,
+  );
+}
+
+function codeText(lang: string, code: string) {
+  if (lang === "en") return `Hello,\n\nYour Luv Sick code is ${code}.\nIt is valid for 15 minutes.\n\nLuv Sick`;
+  if (lang === "fr") return `Bonjour,\n\nTon code Luv Sick est ${code}.\nIl est valable 15 minutes.\n\nLuv Sick`;
+  return `Olá,\n\nO teu código Luv Sick é ${code}.\nÉ válido durante 15 minutos.\n\nLuv Sick`;
+}
+
+async function sendLoginCode(email: string, lang: string) {
+  const sql = await ensureStock();
+  await ensureCustomers(sql);
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  await sql.query(
+    `insert into luv_login_codes (email, code, expires_at) values ($1, $2, $3)
+     on conflict (email) do update set code = excluded.code, expires_at = excluded.expires_at`,
+    [email, code, expires],
+  );
+  const subject = lang === "en" ? "Your Luv Sick code" : lang === "fr" ? "Ton code Luv Sick" : "O teu código Luv Sick";
+  return mailCustomer(email, subject, codeText(lang, code));
+}
+
+async function saveCustomer(profile: CustomerProfile) {
+  const sql = await ensureStock();
+  await ensureCustomers(sql);
+  const email = profile.email.trim().toLowerCase();
+  await sql.query(
+    `insert into luv_customers (email, name, phone, address, city, country, postal)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     on conflict (email) do update set
+       name = excluded.name,
+       phone = excluded.phone,
+       address = case when excluded.address <> '' then excluded.address else luv_customers.address end,
+       city = case when excluded.city <> '' then excluded.city else luv_customers.city end,
+       country = case when excluded.country <> '' then excluded.country else luv_customers.country end,
+       postal = case when excluded.postal <> '' then excluded.postal else luv_customers.postal end`,
+    [email, profile.name.trim(), profile.phone.trim(), profile.address.trim(), profile.city.trim(), profile.country.trim(), profile.postal.trim()],
+  );
+}
+
+async function openCustomer(profile: CustomerProfile, lang: string) {
+  await saveCustomer(profile);
+  return sendLoginCode(profile.email.trim().toLowerCase(), lang);
+}
+
+function stamp(value: unknown) {
+  return value instanceof Date ? value.toISOString() : String(value ?? "");
+}
+
+async function accountBundle(email: string) {
+  const sql = await ensureStock();
+  const people = await sql.query(`select * from luv_customers where email = $1`, [email]);
+  const row = (people[0] ?? {}) as Record<string, unknown>;
+  const orders = await sql.query(`select ref, total_label, created_at from luv_orders where email = $1 order by created_at desc limit 30`, [email]);
+  const reservations = await sql.query(
+    `select ref, deposit_label, balance_label, created_at from luv_reservations where email = $1 order by created_at desc limit 30`,
+    [email],
+  );
+  return {
+    email,
+    name: String(row.name ?? ""),
+    phone: String(row.phone ?? ""),
+    address: String(row.address ?? ""),
+    city: String(row.city ?? ""),
+    country: String(row.country ?? ""),
+    postal: String(row.postal ?? ""),
+    orders: orders.map((item) => ({
+      ref: String(item.ref),
+      totalLabel: String(item.total_label),
+      createdAt: stamp(item.created_at),
+    })),
+    reservations: reservations.map((item) => ({
+      ref: String(item.ref),
+      depositLabel: String(item.deposit_label ?? ""),
+      balanceLabel: String(item.balance_label ?? ""),
+      createdAt: stamp(item.created_at),
+    })),
+  };
+}
+
+export async function luvAskCode(email: string, lang: string) {
+  const clean = email.trim().toLowerCase();
+  if (!emailOk(clean)) return { ok: false as const, error: "form" as const };
+  const sql = await ensureStock();
+  await ensureCustomers(sql);
+  const found = await sql.query(`select email from luv_customers where email = $1`, [clean]);
+  if (!found.length) return { ok: false as const, error: "missing" as const };
+  const sent = await sendLoginCode(clean, lang);
+  return { ok: true as const, sent };
+}
+
+export async function luvEnter(email: string, code: string) {
+  const clean = email.trim().toLowerCase();
+  const pin = code.replace(/\D/g, "");
+  if (!emailOk(clean) || pin.length !== 6) return { ok: false as const, error: "code" as const };
+  const sql = await ensureStock();
+  await ensureCustomers(sql);
+  const rows = await sql.query<{ code: string; expires_at: Date | string }>(`select code, expires_at from luv_login_codes where email = $1`, [clean]);
+  const row = rows[0];
+  const expires = row ? new Date(row.expires_at).getTime() : 0;
+  if (!row || row.code !== pin || Number.isNaN(expires) || expires < Date.now()) return { ok: false as const, error: "code" as const };
+  await sql.query(`delete from luv_login_codes where email = $1`, [clean]);
+  const token = randomBytes(24).toString("hex");
+  await sql.query(`insert into luv_sessions (token, email) values ($1, $2)`, [token, clean]);
+  return { ok: true as const, token, account: await accountBundle(clean) };
+}
+
+export async function luvAccount(token: string) {
+  const sql = await ensureStock();
+  await ensureCustomers(sql);
+  const rows = await sql.query<{ email: string }>(`select email from luv_sessions where token = $1`, [token]);
+  if (!rows.length) return { ok: false as const };
+  return { ok: true as const, account: await accountBundle(rows[0].email) };
+}
+
+export async function luvSaveAddress(token: string, input: { address: string; city: string; country: string; postal: string }) {
+  const sql = await ensureStock();
+  await ensureCustomers(sql);
+  const rows = await sql.query<{ email: string }>(`select email from luv_sessions where token = $1`, [token]);
+  if (!rows.length) return { ok: false as const };
+  const email = rows[0].email;
+  const country = input.country === "AO" || input.country === "PT" ? input.country : "";
+  if (!input.address.trim() || !input.city.trim() || !country || !postalOk(country, input.postal)) {
+    return { ok: false as const, error: "form" as const };
+  }
+  await sql.query(`update luv_customers set address = $2, city = $3, country = $4, postal = $5 where email = $1`, [
+    email,
+    input.address.trim(),
+    input.city.trim(),
+    country,
+    input.postal.trim(),
+  ]);
+  await sql.query(`update luv_orders set address = $2, city = $3, country = $4, postal = $5 where email = $1 and paid_at is null`, [
+    email,
+    input.address.trim(),
+    input.city.trim(),
+    country,
+    input.postal.trim(),
+  ]);
+  return { ok: true as const, account: await accountBundle(email) };
+}
+
+export async function luvReserve(input: { name: string; phone: string; email: string; lines: Need[]; pay: string; market: string; lang?: string }) {
   const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const email = input.email.trim().toLowerCase();
   const market: Market = input.market === "PT" ? "PT" : "AO";
@@ -423,7 +616,8 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   };
   const emailed = await mailCustomer(email, `Luv Sick · ${ref} · recibo e fatura`, reserveLetter(paper));
   if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);
-  return { ok: true as const, ref, totalLabel, depositLabel, balanceLabel, receiptNo, invoiceNo, emailed };
+  const codeSent = await openCustomer({ email, name: input.name, phone: input.phone, address: "", city: "", country: "", postal: "" }, input.lang ?? "pt");
+  return { ok: true as const, ref, totalLabel, depositLabel, balanceLabel, receiptNo, invoiceNo, emailed, codeSent };
 }
 
 export async function luvReservePaper(ref: string) {

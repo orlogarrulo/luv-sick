@@ -19,10 +19,10 @@ import {
   type Market,
   type Product,
 } from "@/lib/luvsick";
-import { luvCheckCoupon, luvMode, luvPlace, luvReserve, luvStock, luvVisit } from "@/server/fns";
+import { luvAccount, luvAskCode, luvCheckCoupon, luvEnter, luvMode, luvPlace, luvReserve, luvSaveAddress, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
-type View = "splash" | "shop" | "product" | "bag" | "reserve" | "checkout" | "sent";
+type View = "splash" | "shop" | "product" | "bag" | "reserve" | "checkout" | "sent" | "account";
 type Form = { name: string; phone: string; address: string; city: string; country: "AO" | "PT"; postal: string };
 
 const BAG_KEY = "luvsick-bag";
@@ -31,6 +31,7 @@ const MARKET_KEY = "luvsick-market";
 const VISITOR_KEY = "luvsick-visitor";
 const SOUND_KEY = "luvsick-sound";
 const WISH_KEY = "luvsick-wish";
+const SESSION_KEY = "luvsick-session";
 
 function stockKey(productId: string, size: string) {
   return `${productId}|${size}`;
@@ -67,6 +68,18 @@ function waLink(market: Market, text: string) {
   return `https://wa.me/${WA[market].n}?text=${encodeURIComponent(text)}`;
 }
 
+type Account = {
+  email: string;
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  country: string;
+  postal: string;
+  orders: { ref: string; totalLabel: string; createdAt: string }[];
+  reservations: { ref: string; depositLabel: string; balanceLabel: string; createdAt: string }[];
+};
+
 export function LuvSickApp() {
   const [view, setView] = useState<View>("splash");
   const [lang, setLang] = useState<Lang>("pt");
@@ -97,6 +110,11 @@ export function LuvSickApp() {
   const [kind, setKind] = useState<"order" | "reserve">("order");
   const [paper, setPaper] = useState({ deposit: "", balance: "", total: "", receiptNo: "", invoiceNo: "", emailed: false });
   const [trial, setTrial] = useState(false);
+  const [session, setSession] = useState("");
+  const [account, setAccount] = useState<Account | null>(null);
+  const [code, setCode] = useState("");
+  const [codeNote, setCodeNote] = useState("");
+  const [addressNote, setAddressNote] = useState("");
   const sound = useRef<HTMLAudioElement | null>(null);
   const t = COPY[lang];
   const product = productById(productId) ?? PRODUCTS[0];
@@ -161,6 +179,17 @@ export function LuvSickApp() {
       setView("product");
     }
     setReady(true);
+    const token = localStorage.getItem(SESSION_KEY);
+    if (token) {
+      luvAccount({ data: { token } }).then((res) => {
+        if (!res.ok) {
+          localStorage.removeItem(SESSION_KEY);
+          return;
+        }
+        setSession(token);
+        setAccount(res.account);
+      });
+    }
     luvStock()
       .then((rows) => {
         const next: Record<string, number> = {};
@@ -333,7 +362,7 @@ export function LuvSickApp() {
       if (!mailOk) setOrderError(t.emailBad);
       return;
     }
-    const placed = await luvReserve({ data: { lines, name: form.name, phone: form.phone, email, pay, market } });
+    const placed = await luvReserve({ data: { lines, name: form.name, phone: form.phone, email, pay, market, lang } });
     if (!placed.ok) {
       setOrderError(placed.error === "closed" ? t.buy : t.required);
       if (placed.error === "closed") setStockIn(true);
@@ -350,6 +379,7 @@ export function LuvSickApp() {
       emailed: placed.emailed,
     });
     setOrderError("");
+    setCodeNote(placed.codeSent ? t.codeSent : t.codeFail);
     setKind("reserve");
     setView("sent");
   }
@@ -363,8 +393,10 @@ export function LuvSickApp() {
     if (!postalOk(form.country, form.postal)) next.postal = t.postalBad;
     setErrors(next);
     const known = PAY[market].some((item) => item.id === pay);
+    const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     setPayError(known ? "" : t.pickPay);
-    if (Object.keys(next).length || !known || lines.length === 0) return;
+    if (!mailOk) setOrderError(t.emailBad);
+    if (Object.keys(next).length || !known || !mailOk || lines.length === 0) return;
     const placed = await luvPlace({
       data: {
         lines,
@@ -378,6 +410,7 @@ export function LuvSickApp() {
         pay,
         coupon: couponPercent ? coupon : "",
         email,
+        lang,
       },
     });
     if (!placed.ok) {
@@ -402,8 +435,63 @@ export function LuvSickApp() {
       emailed: false,
     });
     setOrderError("");
+    setCodeNote(placed.codeSent ? t.codeSent : t.codeFail);
     setKind("order");
     setView("sent");
+  }
+
+  function remember(token: string, next: Account) {
+    localStorage.setItem(SESSION_KEY, token);
+    setSession(token);
+    setAccount(next);
+    setCode("");
+    setCodeNote("");
+    setView("account");
+  }
+
+  async function submitCode(event: { preventDefault: () => void }) {
+    event.preventDefault();
+    const res = await luvEnter({ data: { email, code } });
+    if (!res.ok) {
+      setCodeNote(t.codeBad);
+      return;
+    }
+    remember(res.token, res.account);
+  }
+
+  async function askCode(event: FormEvent) {
+    event.preventDefault();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setCodeNote(t.emailBad);
+      return;
+    }
+    const res = await luvAskCode({ data: { email, lang } });
+    if (!res.ok) {
+      setCodeNote(t.noOrders);
+      return;
+    }
+    setCodeNote(res.sent ? t.codeSent : t.codeFail);
+  }
+
+  async function saveAddress(event: FormEvent) {
+    event.preventDefault();
+    if (!session || !account) return;
+    const res = await luvSaveAddress({
+      data: { token: session, address: account.address, city: account.city, country: account.country || "PT", postal: account.postal },
+    });
+    if (!res.ok) {
+      setAddressNote(t.postalBad);
+      return;
+    }
+    setAccount(res.account);
+    setAddressNote(t.addressSaved);
+  }
+
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    setSession("");
+    setAccount(null);
+    setView("shop");
   }
 
   return (
@@ -493,6 +581,9 @@ export function LuvSickApp() {
               >
                 <HeartIcon on={wishOnly || wish.length > 0} />
                 {wish.length > 0 ? <span className="absolute top-0 right-0 grid min-w-5 place-items-center rounded-full bg-[#1a1714] px-1 text-[10px] font-bold text-white">{wish.length}</span> : null}
+              </button>
+              <button type="button" onClick={() => { setView("account"); window.scrollTo(0, 0); }} className="grid size-11 place-items-center" aria-label={t.account}>
+                <AccountIcon />
               </button>
               <button type="button" onClick={() => setView("bag")} className="relative grid size-11 place-items-center" aria-label={`${t.bag}${pieces ? ` ${pieces}` : ""}`}>
                 <BagIcon />
@@ -679,6 +770,14 @@ export function LuvSickApp() {
               <p className="font-bold">{t.invoiceWord} {paper.invoiceNo} · {paper.balance}</p>
               <p className="text-sm text-[#1a1714]/70">{paper.emailed ? t.mailed : t.halfLater}</p>
               <a href={`/recibo/${refCode}`} className="text-sm underline">{t.receiptWord} · {t.invoiceWord}</a>
+              <form onSubmit={submitCode} className="grid gap-2">
+                <p className="text-sm">{codeNote}</p>
+                <label className="grid gap-1 text-sm font-bold">
+                  {t.codeLabel}
+                  <input value={code} inputMode="numeric" autoComplete="one-time-code" onChange={(event) => setCode(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                </label>
+                <button className="btn-brown w-fit rounded-full px-5 py-3">{t.account}</button>
+              </form>
               <ul className="grid gap-2">
                 {lines.map((line) => {
                   const item = productById(line.productId);
@@ -720,6 +819,14 @@ export function LuvSickApp() {
                 <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {t.invoiceWord} {paper.invoiceNo}</p>
               ) : null}
               <a href={`/recibo/${refCode}`} className="text-sm underline">{trial ? `${t.receiptWord} · ${t.invoiceWord}` : "Talão de compra"}</a>
+              <form onSubmit={submitCode} className="grid gap-2">
+                <p className="text-sm">{codeNote}</p>
+                <label className="grid gap-1 text-sm font-bold">
+                  {t.codeLabel}
+                  <input value={code} inputMode="numeric" autoComplete="one-time-code" onChange={(event) => setCode(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                </label>
+                <button className="btn-brown w-fit rounded-full px-5 py-3">{t.account}</button>
+              </form>
               <a href={waLink(market, orderText(refCode))} target="_blank" rel="noreferrer" className="btn-brown rounded-full px-4 py-3 text-center">
                 {t.whatsapp} · {WA[market].label}
               </a>
@@ -740,6 +847,66 @@ export function LuvSickApp() {
             </section>
           ) : null}
 
+          {view === "account" ? (
+            <section className="mx-auto grid max-w-lg gap-4 px-4 py-8">
+              <h1 className="text-3xl font-bold">{t.account}</h1>
+              {account && session ? (
+                <>
+                  <p className="font-bold">{account.name}</p>
+                  <p>{account.email}</p>
+                  <p>{account.phone}</p>
+                  <form onSubmit={saveAddress} className="grid gap-2">
+                    <label className="grid gap-1 text-sm font-bold">
+                      {t.address}
+                      <input value={account.address} onChange={(event) => setAccount({ ...account, address: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-bold">
+                      {t.city}
+                      <input value={account.city} onChange={(event) => setAccount({ ...account, city: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-bold">
+                      {t.country}
+                      <select value={account.country || "PT"} onChange={(event) => setAccount({ ...account, country: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal">
+                        <option value="AO">Angola</option>
+                        <option value="PT">Portugal</option>
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm font-bold">
+                      {t.postal}
+                      <input value={account.postal} onChange={(event) => setAccount({ ...account, postal: event.target.value })} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                    </label>
+                    <button className="btn-brown w-fit rounded-full px-5 py-3">{t.saveAddress}</button>
+                    {addressNote ? <p className="text-sm">{addressNote}</p> : null}
+                  </form>
+                  <h2 className="font-bold">{t.myOrders}</h2>
+                  {account.orders.length + account.reservations.length === 0 ? <p>{t.noOrders}</p> : null}
+                  <ul className="grid gap-2">
+                    {account.orders.map((order) => (
+                      <li key={order.ref}>{order.ref} · {order.totalLabel}</li>
+                    ))}
+                    {account.reservations.map((item) => (
+                      <li key={item.ref}>{item.ref} · {item.depositLabel} · {item.balanceLabel}</li>
+                    ))}
+                  </ul>
+                  <button type="button" onClick={logout} className="text-sm underline">{t.logout}</button>
+                </>
+              ) : (
+                <form onSubmit={askCode} className="grid gap-3">
+                  <label className="grid gap-1 text-sm font-bold">
+                    {t.email}
+                    <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                  </label>
+                  <button className="btn-brown w-fit rounded-full px-5 py-3">{t.sendCode}</button>
+                  <label className="grid gap-1 text-sm font-bold">
+                    {t.codeLabel}
+                    <input value={code} inputMode="numeric" autoComplete="one-time-code" onChange={(event) => setCode(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
+                  </label>
+                  <button type="button" onClick={submitCode} className="w-fit rounded-full px-5 py-3 ring-1 ring-[#1a1714]">{t.account}</button>
+                  {codeNote ? <p className="text-sm">{codeNote}</p> : null}
+                </form>
+              )}
+            </section>
+          ) : null}
           {view === "shop" ? <Story lang={lang} /> : null}
           {view === "shop" ? <Faq lang={lang} open={openFaq} onToggle={(index) => setOpenFaq((current) => (current === index ? null : index))} /> : null}
           <p className="bg-[#1c1917] px-4 py-8 text-center text-xs tracking-[0.16em] text-white/70">© LUV SICK · Since 2025</p>
@@ -1164,6 +1331,15 @@ function BagIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-6" aria-hidden>
       <path fill="none" stroke="currentColor" strokeWidth="1.8" d="M6 8h12l-1 12H7L6 8zm3 0V6a3 3 0 0 1 6 0v2" />
+    </svg>
+  );
+}
+
+function AccountIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" aria-hidden>
+      <circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path fill="none" stroke="currentColor" strokeWidth="1.6" d="M5.5 19.2a6.5 6.5 0 0 1 13 0" />
     </svg>
   );
 }

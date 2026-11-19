@@ -178,6 +178,17 @@ type Dict = {
   invoiceWord: string;
   mailed: string;
   practice: string;
+  account: string;
+  codeSent: string;
+  codeFail: string;
+  codeBad: string;
+  codeLabel: string;
+  myOrders: string;
+  saveAddress: string;
+  addressSaved: string;
+  logout: string;
+  sendCode: string;
+  noOrders: string;
   email: string;
   emailBad: string;
   added: string;
@@ -262,11 +273,22 @@ export const COPY: Record<Lang, Dict> = {
     reserve: "Reservar",
     reserveOk: "Reserva feita. Pagaste 50%.",
     halfNow: "A pagar agora, 50%",
-    halfLater: "Os outros 50% pagam-se no dia do recebimento, data a combinar.",
+    halfLater: "Os outros 50% pagam-se no dia do envio.",
     receiptWord: "Recibo",
     invoiceWord: "Fatura",
     mailed: "Enviámos o recibo e a fatura para o teu email.",
     practice: "Conta de ensaio. O stock e os totais da loja não mudam.",
+    account: "Conta",
+    codeSent: "Enviámos um código para o teu email.",
+    codeFail: "Não foi possível enviar o código. Tenta outra vez em Conta.",
+    codeBad: "Código incorrecto ou expirado.",
+    codeLabel: "Código",
+    myOrders: "Encomendas",
+    saveAddress: "Guardar morada",
+    addressSaved: "Morada actualizada.",
+    logout: "Sair",
+    sendCode: "Enviar código",
+    noOrders: "Ainda não há encomendas nesta conta.",
     email: "Email",
     emailBad: "Escreve um email válido.",
     added: "No saco",
@@ -358,11 +380,22 @@ export const COPY: Record<Lang, Dict> = {
     reserve: "Reserve",
     reserveOk: "Reservation placed. You paid 50%.",
     halfNow: "Pay now, 50%",
-    halfLater: "The other 50% is paid on the day you receive the order. The date is to be arranged.",
+    halfLater: "The other 50% is paid on the day the order is sent.",
     receiptWord: "Receipt",
     invoiceWord: "Invoice",
     mailed: "We sent the receipt and the invoice to your email.",
     practice: "Practice account. Stock and shop totals stay unchanged.",
+    account: "Account",
+    codeSent: "We sent a code to your email.",
+    codeFail: "The code could not be sent. Try again in Account.",
+    codeBad: "Wrong or expired code.",
+    codeLabel: "Code",
+    myOrders: "Orders",
+    saveAddress: "Save address",
+    addressSaved: "Address updated.",
+    logout: "Log out",
+    sendCode: "Send code",
+    noOrders: "There are no orders on this account yet.",
     email: "Email",
     emailBad: "Enter a valid email.",
     added: "In the bag",
@@ -454,11 +487,22 @@ export const COPY: Record<Lang, Dict> = {
     reserve: "Réserver",
     reserveOk: "Réservation faite. Tu as payé 50 %.",
     halfNow: "À payer maintenant, 50 %",
-    halfLater: "Les autres 50 % se paient le jour de la réception. La date est à convenir.",
+    halfLater: "Les autres 50 % se paient le jour de l'envoi.",
     receiptWord: "Reçu",
     invoiceWord: "Facture",
     mailed: "Nous avons envoyé le reçu et la facture à ton e-mail.",
     practice: "Compte d'essai. Le stock et les totaux de la boutique ne changent pas.",
+    account: "Compte",
+    codeSent: "Nous avons envoyé un code à ton e-mail.",
+    codeFail: "Le code n'a pas pu être envoyé. Réessaie dans Compte.",
+    codeBad: "Code incorrect ou expiré.",
+    codeLabel: "Code",
+    myOrders: "Commandes",
+    saveAddress: "Enregistrer l'adresse",
+    addressSaved: "Adresse mise à jour.",
+    logout: "Sortir",
+    sendCode: "Envoyer le code",
+    noOrders: "Il n'y a pas encore de commandes sur ce compte.",
     email: "E-mail",
     emailBad: "Écris un e-mail valide.",
     added: "Dans le sac",
