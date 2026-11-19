@@ -1018,6 +1018,122 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
   },
 };
 
+function PhotoZoom({ src, alt, className, imgClassName, caption }: { src: string; alt: string; className?: string; imgClassName?: string; caption?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={className}>
+        <img src={src} alt={alt} className={imgClassName} draggable={false} />
+        {caption ? <span className="mt-2 block text-[11px] tracking-[0.22em] uppercase">{caption}</span> : null}
+      </button>
+      {open ? <ZoomStage src={src} alt={alt} onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+}
+
+function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  const frame = useRef<HTMLDivElement>(null);
+  const picture = useRef<HTMLImageElement>(null);
+  const [scale, setScale] = useState(1);
+  const [shift, setShift] = useState({ x: 0, y: 0 });
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef({ dist: 0, scale: 1, x: 0, y: 0, sx: 0, sy: 0, moved: false });
+  const view = useRef({ scale: 1, x: 0, y: 0 });
+  const lastTap = useRef(0);
+
+  function limit() {
+    const box = frame.current;
+    const img = picture.current;
+    if (!box || !img?.naturalWidth) return 3;
+    const rendered = Math.min(box.clientWidth, img.naturalWidth * (box.clientHeight / img.naturalHeight));
+    return Math.max(1, img.naturalWidth / rendered);
+  }
+
+  function apply(nextScale: number, nextShift: { x: number; y: number }) {
+    const next = Math.min(limit(), Math.max(1, nextScale));
+    const point = next <= 1 ? { x: 0, y: 0 } : nextShift;
+    view.current = { scale: next, x: point.x, y: point.y };
+    setScale(next);
+    setShift(point);
+  }
+
+  useEffect(() => {
+    const box = frame.current;
+    if (!box) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      apply(view.current.scale * (event.deltaY < 0 ? 1.12 : 0.9), { x: view.current.x, y: view.current.y });
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    box.addEventListener("wheel", wheel, { passive: false });
+    window.addEventListener("keydown", key);
+    return () => {
+      box.removeEventListener("wheel", wheel);
+      window.removeEventListener("keydown", key);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/92" role="dialog" aria-modal="true" aria-label={alt}>
+      <button type="button" onClick={onClose} className="absolute top-4 right-4 z-10 grid size-11 place-items-center rounded-full bg-white text-2xl leading-none text-black" aria-label="Fechar">×</button>
+      <div
+        ref={frame}
+        className="flex h-full w-full touch-none items-center justify-center overflow-hidden"
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          gesture.current.moved = false;
+          if (pointers.current.size >= 2) {
+            const [a, b] = [...pointers.current.values()];
+            gesture.current.dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+            gesture.current.scale = view.current.scale;
+          } else {
+            gesture.current.x = event.clientX;
+            gesture.current.y = event.clientY;
+            gesture.current.sx = view.current.x;
+            gesture.current.sy = view.current.y;
+          }
+        }}
+        onPointerMove={(event) => {
+          if (!pointers.current.has(event.pointerId)) return;
+          pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          if (pointers.current.size >= 2) {
+            const [a, b] = [...pointers.current.values()];
+            const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+            gesture.current.moved = true;
+            apply(gesture.current.scale * (dist / gesture.current.dist), { x: view.current.x, y: view.current.y });
+            return;
+          }
+          const dx = event.clientX - gesture.current.x;
+          const dy = event.clientY - gesture.current.y;
+          if (Math.hypot(dx, dy) > 6) gesture.current.moved = true;
+          if (view.current.scale <= 1) return;
+          apply(view.current.scale, { x: gesture.current.sx + dx, y: gesture.current.sy + dy });
+        }}
+        onPointerUp={(event) => {
+          pointers.current.delete(event.pointerId);
+          if (pointers.current.size > 0 || gesture.current.moved) return;
+          const now = Date.now();
+          if (now - lastTap.current < 280) apply(view.current.scale > 1 ? 1 : limit(), { x: 0, y: 0 });
+          lastTap.current = now;
+        }}
+        onPointerCancel={(event) => pointers.current.delete(event.pointerId)}
+      >
+        <img
+          ref={picture}
+          src={src}
+          alt={alt}
+          draggable={false}
+          className="max-h-full max-w-full object-contain select-none"
+          style={{ transform: `translate(${shift.x}px, ${shift.y}px) scale(${scale})` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void }) {
   const ids = ["tracksuit-brown", "long-sleeve", "tracksuit-black"];
   const [index, setIndex] = useState(0);
@@ -1097,10 +1213,7 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
       </div>
       <div className="mx-auto flex max-w-lg justify-center gap-4 px-4 pb-10">
         {([{ src: spin.a, label: spin.la[lang] }, { src: spin.b, label: spin.lb[lang] }] as const).map((item) => (
-          <button key={item.src} type="button" onClick={() => onOpen(id)} className="w-36 text-left sm:w-44">
-            <img src={item.src} alt={item.label} className="h-40 w-full rounded-2xl object-cover sm:h-48" />
-            <span className="mt-2 block text-[11px] tracking-[0.22em] uppercase">{item.label}</span>
-          </button>
+          <PhotoZoom key={item.src} src={item.src} alt={item.label} caption={item.label} className="w-36 text-left sm:w-44" imgClassName="h-40 w-full rounded-2xl object-cover sm:h-48" />
         ))}
       </div>
     </section>
@@ -1182,8 +1295,8 @@ function ProductView({
       </div>
       {SPIN[product.id] ? (
         <div className="flex justify-center gap-3">
-          <img src={SPIN[product.id].a} alt={SPIN[product.id].la[lang]} className="h-36 w-28 rounded-2xl object-cover" />
-          <img src={SPIN[product.id].b} alt={SPIN[product.id].lb[lang]} className="h-36 w-28 rounded-2xl object-cover" />
+          <PhotoZoom src={SPIN[product.id].a} alt={SPIN[product.id].la[lang]} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" />
+          <PhotoZoom src={SPIN[product.id].b} alt={SPIN[product.id].lb[lang]} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" />
         </div>
       ) : null}
       <div className="flex gap-2">
