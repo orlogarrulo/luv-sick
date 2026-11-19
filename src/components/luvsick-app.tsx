@@ -23,7 +23,7 @@ import { DIALS, dialOf, fullPhone } from "@/lib/dials";
 import { luvAccount, luvAskCode, luvCheckCoupon, luvEnter, luvMode, luvPlace, luvReserve, luvSaveAddress, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
-type View = "splash" | "shop" | "product" | "bag" | "reserve" | "checkout" | "sent" | "account";
+type View = "splash" | "shop" | "store" | "product" | "bag" | "reserve" | "checkout" | "sent" | "account";
 type Form = { name: string; phone: string; address: string; city: string; country: "AO" | "PT"; postal: string };
 
 const BAG_KEY = "luvsick-bag";
@@ -504,6 +504,20 @@ export function LuvSickApp() {
     setAddressNote(t.addressSaved);
   }
 
+  function goHome(anchor?: string) {
+    setView("shop");
+    window.setTimeout(() => {
+      if (!anchor || anchor === "inicio") window.scrollTo({ top: 0, behavior: "smooth" });
+      else document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
+    }, 40);
+  }
+
+  function goStore() {
+    setWishOnly(false);
+    setView("store");
+    window.scrollTo(0, 0);
+  }
+
   function logout() {
     localStorage.removeItem(SESSION_KEY);
     setSession("");
@@ -591,7 +605,7 @@ export function LuvSickApp() {
               </button>
               <button
                 type="button"
-                onClick={() => { setWishOnly((on) => !on); setView("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => { setWishOnly((on) => !on); setView("store"); window.scrollTo(0, 0); }}
                 className="relative grid size-11 place-items-center"
                 aria-pressed={wishOnly}
                 aria-label={t.wish}
@@ -607,7 +621,7 @@ export function LuvSickApp() {
                 {pieces > 0 ? <span className="absolute top-0 right-0 grid min-w-5 place-items-center rounded-full bg-[#1a1714] px-1 text-[10px] font-bold text-white">{pieces}</span> : null}
               </button>
             </div>
-            {view === "shop" ? (
+            {view === "shop" || view === "store" ? (
               <nav className="flex gap-4 overflow-x-auto px-4 pb-2 text-[11px] tracking-[0.18em] uppercase" aria-label={t.shop}>
                 {[
                   ["inicio", t.home],
@@ -615,7 +629,7 @@ export function LuvSickApp() {
                   ["marca", t.about],
                   ["contacto", t.contact],
                 ].map(([id, label]) => (
-                  <button key={id} type="button" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })} className="shrink-0 py-1">
+                  <button key={id} type="button" onClick={() => (id === "loja" ? goStore() : goHome(id))} className="shrink-0 py-1">
                     {label}
                   </button>
                 ))}
@@ -638,13 +652,16 @@ export function LuvSickApp() {
                 <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
                   <p className="luv-title text-[11px] tracking-[0.28em] uppercase">{t.newIn}</p>
                   <h1 className="mt-2 text-4xl leading-tight font-medium tracking-tight sm:text-6xl">{t.heroTitle}</h1>
-                  <button type="button" onClick={() => document.getElementById("loja")?.scrollIntoView({ behavior: "smooth" })} className="btn-brown mt-5 rounded-full px-6 py-3">
+                  <button type="button" onClick={goStore} className="btn-brown mt-5 rounded-full px-6 py-3">
                     {t.shop}
                   </button>
                 </div>
               </section>
-              <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
-              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} stockIn={stockIn} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => {
+              <DetailReel />
+            </>
+          ) : null}
+          {view === "store" ? (
+            <Catalog market={market} lang={lang} stock={stock} known={stockKnown} stockIn={stockIn} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => {
                 const open = SIZES.find((option) => available(id, option) > 0);
                 if (!open) {
                   setOrderError(t.noStock);
@@ -652,7 +669,6 @@ export function LuvSickApp() {
                 }
                 addProduct(id, open);
               }} />
-            </>
           ) : null}
           {view === "product" ? (
             <ProductView
@@ -814,7 +830,7 @@ export function LuvSickApp() {
                   return <li key={`${line.productId}-${line.size}`}>{item.name[lang]} · {line.size} · {line.qty}</li>;
                 })}
               </ul>
-              <button type="button" onClick={() => { setLines([]); setKind("order"); setView("shop"); }} className="text-sm underline">{t.continueShop}</button>
+              <button type="button" onClick={() => { setLines([]); setKind("order"); goStore(); }} className="text-sm underline">{t.continueShop}</button>
             </section>
           ) : null}
           {view === "sent" && kind === "order" ? (
@@ -870,7 +886,7 @@ export function LuvSickApp() {
                   Email
                 </a>
               ) : null}
-              <button type="button" onClick={() => { setLines([]); setView("shop"); }} className="text-sm underline">
+              <button type="button" onClick={() => { setLines([]); goStore(); }} className="text-sm underline">
                 {t.continueShop}
               </button>
             </section>
@@ -1001,14 +1017,11 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
   },
 };
 
-function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void }) {
+function DetailReel() {
   const ids = ["tracksuit-brown", "long-sleeve", "tracksuit-black"];
   const [index, setIndex] = useState(0);
-  const drag = useRef({ x: 0, moved: false });
   const id = ids[index];
   const spin = SPIN[id];
-  const product = productById(id);
-  const line = product?.material[lang].split(".")[0] ?? "";
   const [turn, setTurn] = useState(0);
 
   useEffect(() => {
@@ -1023,22 +1036,7 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
   }, [id, spin.video, ids.length]);
 
   return (
-    <section
-      className="bg-white"
-      onPointerDown={(event) => {
-        drag.current = { x: event.clientX, moved: false };
-      }}
-      onPointerUp={(event) => {
-        const dx = event.clientX - drag.current.x;
-        if (dx > 48) {
-          drag.current.moved = true;
-          setIndex((current) => (current + ids.length - 1) % ids.length);
-        } else if (dx < -48) {
-          drag.current.moved = true;
-          setIndex((current) => (current + 1) % ids.length);
-        }
-      }}
-    >
+    <section className="bg-white">
       <div className="relative mx-auto flex h-[70vh] max-h-[760px] w-full max-w-3xl items-center justify-center bg-white">
         {spin.video ? (
           <video
@@ -1053,37 +1051,16 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
         ) : (
           <img src={spin.stills?.[turn]} alt="" className="max-h-full max-w-full object-contain" />
         )}
-        <button
-          type="button"
-          onClick={() => {
-            if (!drag.current.moved) onOpen(id);
-          }}
-          className="absolute inset-0"
-          aria-label={product?.name[lang] ?? ""}
-        />
       </div>
-      <div className="flex items-center gap-4 px-4 py-3 sm:px-8">
-        <p className="min-w-0 flex-1 truncate text-left text-[11px] tracking-[0.22em] text-[#1a1714] uppercase">
-          {product?.name[lang]} · {line}
-        </p>
-        <div className="flex shrink-0 gap-2">
-          {ids.map((item, dot) => (
-            <button
-              key={item}
-              type="button"
-              aria-label={`${dot + 1}`}
-              onClick={() => setIndex(dot)}
-              className={`size-2 rounded-full ${dot === index ? "bg-[#1a1714]" : "bg-[#1a1714]/25"}`}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="mx-auto flex max-w-lg justify-center gap-4 px-4 pb-10">
-        {([{ src: spin.a, label: spin.la[lang] }, { src: spin.b, label: spin.lb[lang] }] as const).map((item) => (
-          <button key={item.src} type="button" onClick={() => onOpen(id)} className="w-36 text-left sm:w-44">
-            <img src={item.src} alt={item.label} className="h-40 w-full rounded-2xl object-cover sm:h-48" />
-            <span className="mt-2 block text-[11px] tracking-[0.22em] uppercase">{item.label}</span>
-          </button>
+      <div className="flex justify-center gap-2 px-4 py-4">
+        {ids.map((item, dot) => (
+          <button
+            key={item}
+            type="button"
+            aria-label={`${dot + 1}`}
+            onClick={() => setIndex(dot)}
+            className={`size-2 rounded-full ${dot === index ? "bg-[#1a1714]" : "bg-[#1a1714]/25"}`}
+          />
         ))}
       </div>
     </section>
@@ -1107,6 +1084,7 @@ function Catalog({ market, lang, stock, known, stockIn, wish, wishOnly, onWish, 
             </button>
             <div className="grid gap-2 py-3">
               <p className="text-sm tracking-wide">{item.name[lang]}</p>
+              <p className="text-sm text-[#1a1714]/75">{item.blurb[lang]}</p>
               <p className="text-sm">{gone ? t.soldOut : formatMoney(item, market)}</p>
               <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={() => onBuy(item.id)} disabled={gone} className="btn-brown w-fit rounded-full px-5 py-2 disabled:bg-[#1a1714]/30">
