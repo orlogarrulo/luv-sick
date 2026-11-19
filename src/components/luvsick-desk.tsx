@@ -169,7 +169,7 @@ export function LuvSickDesk() {
       return;
     }
     const result = await Notification.requestPermission();
-    setNotice(result === "granted" ? "Avisos ligados neste aparelho." : "Os avisos ficam só dentro da gestão.");
+    setNotice(result === "granted" ? "Avisos ligados neste telemóvel. Avisam quando entra uma compra nova. Não são uma lista." : "Os avisos não foram permitidos. As compras novas continuam só dentro da gestão.");
   }
 
   async function saveQty(row: Stock) {
@@ -262,7 +262,10 @@ export function LuvSickDesk() {
       <div className="mx-auto grid max-w-3xl gap-4">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-3xl font-bold">Gestão</h1>
-          <Link to="/" className="text-sm underline">Loja</Link>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={allowNotices} className="text-sm underline">Ligar avisos</button>
+            <Link to="/" className="text-sm underline">Loja</Link>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {(["stock", "orders", "visits", "coupons", "reserves"] as const).map((item) => (
@@ -270,7 +273,6 @@ export function LuvSickDesk() {
               {item === "stock" ? "Stock" : item === "orders" ? `Encomendas${unseen.length ? ` (${unseen.length})` : ""}` : item === "visits" ? "Visitas" : item === "coupons" ? "Cupões" : `Reservas${reservations.length ? ` (${reservations.length})` : ""}`}
             </button>
           ))}
-          <button type="button" onClick={allowNotices} className="px-3 py-2 text-sm font-bold ring-1 ring-white">Avisos</button>
         </div>
         {unseen.length ? (
           <section className="grid gap-2 bg-white p-3 text-black">
@@ -413,16 +415,35 @@ export function LuvSickDesk() {
           </section>
         ) : null}
         {tab === "visits" ? (
-          <section className="grid gap-4">
-            <p className="text-3xl font-bold">{visits.total}</p>
-            <p className="text-sm text-white/70">Visitas dos últimos acessos, uma por pessoa por dia.</p>
+          <section className="grid gap-6">
             <div>
-              <h2 className="mb-2 font-bold">País</h2>
-              <ul>{visits.countries.map((row) => <li key={row.country}>{row.country}: {row.n}</li>)}</ul>
+              <p className="text-3xl font-bold tabular-nums">{visits.total}</p>
+              <p className="mt-1 max-w-xl text-sm text-white/70">Visitas reais à loja, uma por pessoa por dia. O país e a cidade vêm do endereço de internet. Desconhecido significa que a localização não foi obtida.</p>
             </div>
-            <div>
-              <h2 className="mb-2 font-bold">Cidade</h2>
-              <ul>{visits.cities.map((row) => <li key={`${row.country}-${row.city}`}>{row.city}, {row.country}: {row.n}</li>)}</ul>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <div>
+                <h2 className="mb-2 text-sm font-bold tracking-[0.16em] uppercase">País</h2>
+                <ul>
+                  {visits.countries.map((row) => (
+                    <li key={row.country} className="flex items-baseline justify-between gap-6 border-t border-white/15 py-2">
+                      <span>{row.country}</span>
+                      <span className="tabular-nums font-bold">{row.n}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h2 className="mb-2 text-sm font-bold tracking-[0.16em] uppercase">Cidade</h2>
+                <ul>
+                  {visits.cities.map((row) => (
+                    <li key={`${row.country}-${row.city}`} className="grid grid-cols-[1fr_auto_auto] items-baseline gap-4 border-t border-white/15 py-2">
+                      <span>{row.city}</span>
+                      <span className="text-white/55">{row.country}</span>
+                      <span className="tabular-nums font-bold">{row.n}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </section>
         ) : null}
