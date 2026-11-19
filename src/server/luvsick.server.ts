@@ -7,7 +7,7 @@ const DESK_CODE = process.env.LUVSICK_DESK_CODE?.trim() || "LuvSick-1847";
 
 type Need = { productId: string; size: string; qty: number };
 
-export type StockRow = { productId: string; size: string; qty: number };
+export type StockRow = { productId: string; size: string; qty: number; received: number; out: number };
 export type DeskOrder = {
   id: string;
   ref: string;
@@ -72,6 +72,7 @@ async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) 
 async function ensureStock() {
   const sql = await getSql();
   await ensureReservationTables(sql);
+  await sql.query(`alter table luv_stock add column if not exists received integer`);
   for (const product of PRODUCTS) {
     for (const size of SIZES) {
       await sql.query(
@@ -80,15 +81,60 @@ async function ensureStock() {
       );
     }
   }
+  await openLedger(sql);
   return sql;
+}
+
+function addMoves(bucket: Map<string, number>, raw: string) {
+  let lines: Need[] = [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) lines = parsed;
+  } catch {
+    lines = [];
+  }
+  for (const line of lines) {
+    const qty = Math.floor(Number(line.qty));
+    if (!line.productId || !line.size || qty < 1) continue;
+    const key = `${line.productId}|${line.size}`;
+    bucket.set(key, (bucket.get(key) ?? 0) + qty);
+  }
+}
+
+async function openLedger(sql: Awaited<ReturnType<typeof getSql>>) {
+  const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_ledger'`);
+  if (flag[0]?.value === "1") {
+    await sql.query(`update luv_stock set received = qty where received is null`);
+    return;
+  }
+  const sold = new Map<string, number>();
+  const held = new Map<string, number>();
+  const orders = await sql.query<{ lines: string }>(`select lines from luv_orders where coalesce(trial, false) = false`);
+  const reservations = await sql.query<{ lines: string }>(`select lines from luv_reservations where coalesce(trial, false) = false`);
+  orders.forEach((row) => addMoves(sold, row.lines));
+  reservations.forEach((row) => addMoves(held, row.lines));
+  const rows = await sql.query<{ product_id: string; size: string; qty: number }>(`select product_id, size, qty from luv_stock where received is null`);
+  for (const row of rows) {
+    const key = `${row.product_id}|${row.size}`;
+    const outSales = sold.get(key) ?? 0;
+    const outHolds = held.get(key) ?? 0;
+    const received = Number(row.qty) + outSales;
+    const qty = Math.max(0, Number(row.qty) - outHolds);
+    await sql.query(`update luv_stock set received = $3, qty = $4 where product_id = $1 and size = $2`, [row.product_id, row.size, received, qty]);
+  }
+  await sql.query(`insert into luv_flags (key, value) values ('stock_ledger', '1') on conflict (key) do update set value = excluded.value`);
 }
 
 export async function luvStock(): Promise<StockRow[]> {
   const sql = await ensureStock();
-  const rows = await sql.query<{ product_id: string; size: string; qty: number }>(
-    `select product_id, size, qty from luv_stock order by product_id, size`,
+  const rows = await sql.query<{ product_id: string; size: string; qty: number; received: number | null }>(
+    `select product_id, size, qty, received from luv_stock order by product_id, size`,
   );
-  return rows.map((row) => ({ productId: row.product_id, size: row.size, qty: Number(row.qty) }));
+  return rows.map((row) => {
+    const qty = Number(row.qty);
+    const received = Number(row.received ?? qty);
+    return { productId: row.product_id, size: row.size, qty, received, out: Math.max(0, received - qty) };
+  });
 }
 
 function practiceEmail(value: string) {
@@ -594,11 +640,56 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   const receiptNo = `RC-${code}`;
   const invoiceNo = `FT-${code}`;
   const trial = practiceEmail(email);
-  await sql.query(
-    `insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-    [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines), totalLabel, depositLabel, balanceLabel, pay, market, receiptNo, invoiceNo, trial],
-  );
+  if (trial) {
+    await sql.query(
+      `insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines), totalLabel, depositLabel, balanceLabel, pay, market, receiptNo, invoiceNo, true],
+    );
+  } else {
+    const placed = await sql.query<{ ref: string }>(
+      `with need as (
+         select product_id, size, qty from jsonb_to_recordset($1::jsonb) as x(product_id text, size text, qty int)
+       ),
+       gate as (
+         select (count(*) = (select count(*) from need) and bool_and(s.qty >= n.qty)) as good
+         from need n
+         join luv_stock s on s.product_id = n.product_id and s.size = n.size
+       ),
+       upd as (
+         update luv_stock s
+         set qty = s.qty - n.qty
+         from need n, gate g
+         where g.good and s.product_id = n.product_id and s.size = n.size
+         returning 1
+       ),
+       ins as (
+         insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial)
+         select $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, false
+         from gate
+         where good
+         returning ref
+       )
+       select ref from ins`,
+      [
+        JSON.stringify(lines.map((line) => ({ product_id: line.productId, size: line.size, qty: line.qty }))),
+        id,
+        ref,
+        input.name.trim(),
+        input.phone.trim(),
+        email,
+        JSON.stringify(lines),
+        totalLabel,
+        depositLabel,
+        balanceLabel,
+        pay,
+        market,
+        receiptNo,
+        invoiceNo,
+      ],
+    );
+    if (!placed.length) return { ok: false as const, error: "stock" as const };
+  }
   const paper: DeskReservation = {
     id,
     ref,
@@ -711,10 +802,16 @@ export async function luvReceipt(ref: string) {
 export async function luvSetStock(code: string, productId: string, size: string, qty: number) {
   if (!allowed(code)) return { ok: false as const };
   if (!PRODUCTS.some((item) => item.id === productId) || !SIZES.includes(size as (typeof SIZES)[number])) return { ok: false as const };
-  const next = Math.max(0, Math.floor(qty));
+  const received = Math.max(0, Math.floor(qty));
   const sql = await ensureStock();
-  await sql.query(`update luv_stock set qty = $3 where product_id = $1 and size = $2`, [productId, size, next]);
-  return { ok: true as const, qty: next };
+  const rows = await sql.query<{ qty: number; received: number | null }>(`select qty, received from luv_stock where product_id = $1 and size = $2`, [productId, size]);
+  if (!rows.length) return { ok: false as const };
+  const onHand = Number(rows[0].qty);
+  const currentIn = Number(rows[0].received ?? onHand);
+  const out = Math.max(0, currentIn - onHand);
+  const next = Math.max(0, received - out);
+  await sql.query(`update luv_stock set received = $3, qty = $4 where product_id = $1 and size = $2`, [productId, size, received, next]);
+  return { ok: true as const, qty: next, received, out: received - next };
 }
 
 export async function luvCheckCoupon(coupon: string) {

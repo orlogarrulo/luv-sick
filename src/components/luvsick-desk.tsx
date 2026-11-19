@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PRODUCTS, SIZES } from "@/lib/luvsick";
 import { luvAckOrder, luvConfirmReserve, luvDesk, luvIssueReceipt, luvMarkReservations, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
 
-type Stock = { productId: string; size: string; qty: number };
+type Stock = { productId: string; size: string; qty: number; received: number; out: number };
 type Line = { productId: string; size: string; qty: number };
 type Order = {
   id: string;
@@ -173,10 +173,10 @@ export function LuvSickDesk() {
   }
 
   async function saveQty(row: Stock) {
-    const qty = Number(draft[`${row.productId}|${row.size}`] ?? row.qty);
-    const res = await luvSetStock({ data: { code, productId: row.productId, size: row.size, qty } });
+    const received = Number(draft[`${row.productId}|${row.size}`] ?? row.received);
+    const res = await luvSetStock({ data: { code, productId: row.productId, size: row.size, qty: received } });
     if (!res.ok) return;
-    setStock((current) => current.map((item) => (item.productId === row.productId && item.size === row.size ? { ...item, qty: res.qty } : item)));
+    setStock((current) => current.map((item) => (item.productId === row.productId && item.size === row.size ? { ...item, qty: res.qty, received: res.received, out: res.out } : item)));
   }
 
   async function issue(order: Order) {
@@ -295,18 +295,27 @@ export function LuvSickDesk() {
                 {SIZES.map((size) => {
                   const row = stock.find((item) => item.productId === product.id && item.size === size);
                   const key = `${product.id}|${size}`;
+                  const received = row?.received ?? row?.qty ?? 0;
+                  const out = row?.out ?? 0;
+                  const onHand = row?.qty ?? 0;
                   return (
-                    <label key={size} className="flex items-center gap-2 text-sm">
-                      <span className="w-8 font-bold">{size}</span>
-                      <input
-                        inputMode="numeric"
-                        value={draft[key] ?? String(row?.qty ?? 0)}
-                        onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
-                        className="w-20 border border-black px-2 py-2"
-                      />
+                    <div key={size} className="grid items-end gap-2 border-t border-black/10 py-2 sm:grid-cols-[2.5rem_5.5rem_5.5rem_6rem_auto]">
+                      <span className="font-bold">{size}</span>
+                      <label className="grid gap-1 text-xs">
+                        Entradas
+                        <input
+                          inputMode="numeric"
+                          aria-label={`Entradas ${size}`}
+                          value={draft[key] ?? String(received)}
+                          onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
+                          className="w-full border border-black px-2 py-2 text-sm"
+                        />
+                      </label>
+                      <p className="text-sm">Saídas <span className="font-bold tabular-nums">{out}</span></p>
+                      <p className="text-sm">Existente <span className="font-bold tabular-nums">{onHand}</span></p>
                       <button type="button" onClick={() => row && saveQty(row)} className="bg-black px-3 py-2 font-bold text-white">Guardar</button>
-                      {(row?.qty ?? 0) === 0 ? <span>Sem venda</span> : null}
-                    </label>
+                      {onHand === 0 ? <span className="text-sm sm:col-span-5">Esgotado</span> : null}
+                    </div>
                   );
                 })}
               </section>

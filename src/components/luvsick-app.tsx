@@ -296,7 +296,7 @@ export function LuvSickApp() {
   }
 
   function addProduct(productId: string, nextSize: string) {
-    if (stockIn && available(productId, nextSize) - inBag(productId, nextSize) < 1) {
+    if (available(productId, nextSize) - inBag(productId, nextSize) < 1) {
       setOrderError(t.noStock);
       return;
     }
@@ -320,7 +320,7 @@ export function LuvSickApp() {
       current.flatMap((line, i) => {
         if (i !== index) return [line];
         if (qty < 1) return [];
-        return [{ ...line, qty: stockIn ? Math.min(qty, available(line.productId, line.size)) : qty }];
+        return [{ ...line, qty: Math.min(qty, available(line.productId, line.size)) }];
       }),
     );
   }
@@ -371,8 +371,17 @@ export function LuvSickApp() {
     }
     const placed = await luvReserve({ data: { lines, name: form.name, phone: fullPhone(phoneIso, form.phone), email, pay, market, lang } });
     if (!placed.ok) {
-      setOrderError(placed.error === "closed" ? t.buy : t.required);
+      setOrderError(placed.error === "stock" ? t.noStock : placed.error === "closed" ? t.buy : t.required);
       if (placed.error === "closed") setStockIn(true);
+      if (placed.error === "stock") {
+        const rows = await luvStock();
+        const nextStock: Record<string, number> = {};
+        rows.forEach((row) => {
+          nextStock[stockKey(row.productId, row.size)] = row.qty;
+        });
+        setStock(nextStock);
+        setStockKnown(true);
+      }
       return;
     }
     setRefCode(placed.ref);
@@ -635,7 +644,14 @@ export function LuvSickApp() {
                 </div>
               </section>
               <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
-              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} stockIn={stockIn} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => addProduct(id, "M")} />
+              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} stockIn={stockIn} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => {
+                const open = SIZES.find((option) => available(id, option) > 0);
+                if (!open) {
+                  setOrderError(t.noStock);
+                  return;
+                }
+                addProduct(id, open);
+              }} />
             </>
           ) : null}
           {view === "product" ? (
@@ -1082,7 +1098,7 @@ function Catalog({ market, lang, stock, known, stockIn, wish, wishOnly, onWish, 
       <h2 className="text-xs tracking-[0.28em] uppercase sm:col-span-3">{wishOnly ? t.wish : t.arrivals}</h2>
       {items.length === 0 && wishOnly ? <p className="sm:col-span-3">{t.wishEmpty}</p> : null}
       {items.map((item) => {
-        const gone = stockIn && known && SIZES.every((size) => (stock[`${item.id}|${size}`] ?? 0) <= 0);
+        const gone = known && SIZES.every((size) => (stock[`${item.id}|${size}`] ?? 0) <= 0);
         const saved = wish.includes(item.id);
         return (
           <article key={item.id} className="grid text-left text-[#1a1714]">
@@ -1173,7 +1189,7 @@ function ProductView({
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={onAdd} disabled={selling && left < 1} className="btn-brown w-fit rounded-full px-5 py-3">{selling && left < 1 ? t.soldOut : selling ? t.add : t.reserve}</button>
+        <button type="button" onClick={onAdd} disabled={left < 1} className="btn-brown w-fit rounded-full px-5 py-3 disabled:bg-[#1a1714]/30">{left < 1 ? t.soldOut : selling ? t.add : t.reserve}</button>
         <button type="button" onClick={onWish} aria-pressed={wished} aria-label={wished ? t.wishOn : t.wish} className="grid size-11 place-items-center rounded-full ring-1 ring-[#1a1714]">
           <HeartIcon on={wished} />
         </button>
