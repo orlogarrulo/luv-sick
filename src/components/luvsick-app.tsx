@@ -209,7 +209,7 @@ export function LuvSickApp() {
   function shareProduct(id: string) {
     const item = productById(id);
     if (!item) return;
-    const url = `${window.location.origin}/?p=${encodeURIComponent(id)}`;
+    const url = `${window.location.origin}/?p=${encodeURIComponent(id)}&card=1`;
     const text = `${item.name[lang]} — Luv Sick\n${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   }
