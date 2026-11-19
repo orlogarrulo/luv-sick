@@ -184,6 +184,9 @@ export function LuvSickApp() {
     if (opened && productById(opened)) {
       setProductId(opened);
       setView("product");
+      window.history.replaceState({ view: "product", productId: opened }, "");
+    } else {
+      window.history.replaceState({ view: "splash" }, "");
     }
     setReady(true);
     const token = localStorage.getItem(SESSION_KEY);
@@ -505,6 +508,34 @@ export function LuvSickApp() {
     setAddressNote(t.addressSaved);
   }
 
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const state = (event.state ?? {}) as { view?: View; productId?: string };
+      if (state.productId && productById(state.productId)) setProductId(state.productId);
+      setView(state.view ?? "shop");
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function openProduct(id: string) {
+    setProductId(id);
+    setShot(0);
+    setSize("M");
+    setView("product");
+    window.history.pushState({ view: "product", productId: id }, "");
+    window.scrollTo(0, 0);
+  }
+
+  function leaveProduct() {
+    if (window.history.state?.view === "product") window.history.back();
+    else {
+      setView("store");
+      window.scrollTo(0, 0);
+    }
+  }
+
   function goHome(anchor?: string) {
     setView("shop");
     window.setTimeout(() => {
@@ -516,6 +547,7 @@ export function LuvSickApp() {
   function goStore() {
     setWishOnly(false);
     setView("store");
+    window.history.pushState({ view: "store" }, "");
     window.scrollTo(0, 0);
   }
 
@@ -534,7 +566,7 @@ export function LuvSickApp() {
             <img src="/luvsick/brand/logo-white.svg" alt="Luv Sick" className="h-48 w-48 object-contain sm:h-56 sm:w-56" />
             <button
               type="button"
-              onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }}
+              onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); window.history.pushState({ view: "shop" }, ""); }}
               className="btn-enter rounded-full border border-white bg-white px-10 py-3 text-[11px] font-medium tracking-[0.18em] text-black uppercase" style={{ borderRadius: "9999px" }}
             >
               {t.enter}
@@ -545,6 +577,11 @@ export function LuvSickApp() {
         <>
           <header className="sticky top-0 z-20 border-b border-[#e4ddd4] bg-[#f4f1ec]/95 backdrop-blur">
             <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+              {view === "product" ? (
+                <button type="button" onClick={leaveProduct} className="grid size-11 place-items-center text-xl" aria-label={lang === "en" ? "Back" : lang === "fr" ? "Retour" : "Voltar"}>
+                  ←
+                </button>
+              ) : null}
               <button type="button" onClick={() => { setView("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="mr-auto shrink-0" aria-label="Luv Sick">
                 <img src="/luvsick/brand/logo-black.svg" alt="Luv Sick" className="h-11 w-11 object-contain" />
               </button>
@@ -606,7 +643,7 @@ export function LuvSickApp() {
               </button>
               <button
                 type="button"
-                onClick={() => { setWishOnly((on) => !on); setView("store"); window.scrollTo(0, 0); }}
+                onClick={() => { setWishOnly((on) => !on); setView("store"); window.history.pushState({ view: "store" }, ""); window.scrollTo(0, 0); }}
                 className="relative grid size-11 place-items-center"
                 aria-pressed={wishOnly}
                 aria-label={t.wish}
@@ -642,8 +679,8 @@ export function LuvSickApp() {
             <>
               <section id="inicio">
                 <video
-                  src="/luvsick/brand/hero-meet-3.mp4"
-                  poster="/luvsick/brand/hero-meet-3.jpg"
+                  src="/luvsick/brand/hero-meet-4.mp4"
+                  poster="/luvsick/brand/hero-meet-4.jpg"
                   className="mx-auto block h-auto max-h-[70vh] w-full bg-[#cbb7a2] object-contain"
                   autoPlay
                   muted
@@ -658,11 +695,11 @@ export function LuvSickApp() {
                   </button>
                 </div>
               </section>
-              <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
+              <DetailReel lang={lang} onOpen={openProduct} />
             </>
           ) : null}
           {view === "store" ? (
-            <Catalog market={market} lang={lang} stock={stock} known={stockKnown} stockIn={stockIn} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => {
+            <Catalog market={market} lang={lang} stock={stock} known={stockKnown} stockIn={stockIn} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={openProduct} onBuy={(id) => {
                 const open = SIZES.find((option) => available(id, option) > 0);
                 if (!open) {
                   setOrderError(t.noStock);
