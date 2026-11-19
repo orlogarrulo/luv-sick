@@ -16,6 +16,7 @@
  */
 import installPageTemplate from "../../scripts/install-page.html?raw";
 import { grokOgIdentity } from "virtual:grok-og-identity";
+import { PRODUCTS } from "../../src/lib/luvsick";
 import {
   acceptsHtml,
   createHeadInjector,
@@ -36,7 +37,31 @@ function requestHost(event: GrokPwaEvent): string {
   );
 }
 
-function injectHeadStreaming(response: Response, host: string): Response {
+function escapeAttr(value: string) {
+  return value.replaceAll("&", "&").replaceAll('"', """).replaceAll("<", "<");
+}
+
+function rewriteProductCard(html: string, url: URL, host: string) {
+  const id = url.searchParams.get("p")?.trim() ?? "";
+  const product = PRODUCTS.find((item) => item.id === id);
+  if (!product || !html.includes('property="og:image"')) return html;
+  const cleanHost = host.split(",")[0]?.trim().replace(/:\d+$/, "") || url.host;
+  const image = `https://${cleanHost}${product.images[0]}`;
+  const title = `${product.name.pt} — Luv Sick`;
+  const description = product.blurb.pt;
+  const page = `https://${cleanHost}/?p=${encodeURIComponent(product.id)}`;
+  return html
+    .replace(
+      /<meta property="og:title" content="[^"]*">/,
+      `<meta property="og:title" content="${escapeAttr(title)}">`,
+    )
+    .replace(
+      /<meta property="og:image" content="[^"]*">/,
+      `<meta property="og:image" content="${escapeAttr(image)}"><meta property="og:url" content="${escapeAttr(page)}"><meta property="og:description" content="${escapeAttr(description)}"><meta name="twitter:image" content="${escapeAttr(image)}">`,
+    );
+}
+
+function injectHeadStreaming(response: Response, host: string, url: URL): Response {
   const injector = createHeadInjector({
     host,
     site: grokOgIdentity.site,
@@ -44,10 +69,16 @@ function injectHeadStreaming(response: Response, host: string): Response {
   const transformed = response.body!.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
-        for (const out of injector.push(chunk)) controller.enqueue(out);
+        for (const out of injector.push(chunk)) {
+          const html = Buffer.from(out).toString("utf8");
+          controller.enqueue(html.includes('property="og:image"') ? Buffer.from(rewriteProductCard(html, url, host)) : out);
+        }
       },
       flush(controller) {
-        for (const out of injector.flush()) controller.enqueue(out);
+        for (const out of injector.flush()) {
+          const html = Buffer.from(out).toString("utf8");
+          controller.enqueue(html.includes('property="og:image"') ? Buffer.from(rewriteProductCard(html, url, host)) : out);
+        }
       },
     }),
   );
@@ -105,7 +136,7 @@ export default async function grokPwaMiddleware(
     String(result.headers.get("content-type") ?? "").includes("text/html") &&
     !result.headers.get("content-encoding")
   ) {
-    return injectHeadStreaming(result, requestHost(event));
+    return injectHeadStreaming(result, requestHost(event), event.url);
   }
   return result;
 }
