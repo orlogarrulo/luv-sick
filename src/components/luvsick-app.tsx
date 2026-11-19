@@ -378,12 +378,12 @@ export function LuvSickApp() {
     <div className="min-h-dvh bg-[#f4f1ec] text-[#1a1714]">
       {view === "splash" ? (
         <section className="flex min-h-dvh w-full items-center justify-center bg-black text-white">
-          <div className="flex flex-col items-center justify-center gap-10 px-6">
+          <div className="flex flex-col items-center justify-center gap-16 px-6">
             <img src="/luvsick/brand/logo-white.svg" alt="Luv Sick" className="h-48 w-48 object-contain sm:h-56 sm:w-56" />
             <button
               type="button"
               onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }}
-              className="btn-enter rounded-full border border-white bg-black px-10 py-3 text-[11px] font-medium tracking-[0.18em] text-white uppercase" style={{ borderRadius: "9999px" }}
+              className="btn-enter rounded-full border border-white bg-white px-10 py-3 text-[11px] font-medium tracking-[0.18em] text-black uppercase" style={{ borderRadius: "9999px" }}
             >
               {t.enter}
             </button>
