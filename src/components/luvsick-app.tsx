@@ -28,6 +28,7 @@ const LANG_KEY = "luvsick-lang";
 const MARKET_KEY = "luvsick-market";
 const VISITOR_KEY = "luvsick-visitor";
 const SOUND_KEY = "luvsick-sound";
+const WISH_KEY = "luvsick-wish";
 
 function stockKey(productId: string, size: string) {
   return `${productId}|${size}`;
@@ -87,6 +88,8 @@ export function LuvSickApp() {
   const [refCode, setRefCode] = useState("");
   const [ready, setReady] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
+  const [wish, setWish] = useState<string[]>([]);
+  const [wishOnly, setWishOnly] = useState(false);
   const sound = useRef<HTMLAudioElement | null>(null);
   const t = COPY[lang];
   const product = productById(productId) ?? PRODUCTS[0];
@@ -134,6 +137,19 @@ export function LuvSickApp() {
       setForm((current) => ({ ...current, country: savedMarket }));
     } else detectMarket(setMarket);
     setLines(readBag());
+    try {
+      const savedWish = JSON.parse(localStorage.getItem(WISH_KEY) ?? "[]");
+      if (Array.isArray(savedWish)) {
+        setWish(savedWish.filter((id) => typeof id === "string" && productById(id)));
+      }
+    } catch {
+      setWish([]);
+    }
+    const opened = new URLSearchParams(window.location.search).get("p");
+    if (opened && productById(opened)) {
+      setProductId(opened);
+      setView("product");
+    }
     setReady(true);
     luvStock()
       .then((rows) => {
@@ -175,6 +191,22 @@ export function LuvSickApp() {
 
   const priced = useMemo(() => quote(lines, market, couponPercent), [lines, market, couponPercent]);
   const totalLabel = formatAmount(priced.total, market);
+
+  function toggleWish(id: string) {
+    setWish((current) => {
+      const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
+      localStorage.setItem(WISH_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function shareProduct(id: string) {
+    const item = productById(id);
+    if (!item) return;
+    const url = `${window.location.origin}/?p=${encodeURIComponent(id)}`;
+    const text = `${item.name[lang]} — Luv Sick\n${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+  }
 
   function chooseLang(next: Lang) {
     setLang(next);
@@ -314,12 +346,14 @@ export function LuvSickApp() {
   return (
     <div className="min-h-dvh bg-[#f4f1ec] text-[#1a1714]">
       {view === "splash" ? (
-        <section className="relative flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden">
-          <img src="/luvsick/brand/hero.jpg" alt="" className="absolute inset-0 h-full w-full object-cover object-[center_30%]" />
-          <div className="absolute inset-0 bg-[#2a211c]/45" />
-          <div className="relative z-10 flex flex-col items-center px-6">
-            <img src="/luvsick/brand/logo-white.svg" alt="Luv Sick" className="h-44 w-44 object-contain sm:h-56 sm:w-56" />
-            <button type="button" onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }} className="btn-brown mt-8 rounded-full px-10 py-3">
+        <section className="flex min-h-dvh w-full items-center justify-center bg-black text-white">
+          <div className="flex flex-col items-center justify-center gap-10 px-6">
+            <img src="/luvsick/brand/logo-white.svg" alt="Luv Sick" className="h-48 w-48 object-contain sm:h-56 sm:w-56" />
+            <button
+              type="button"
+              onClick={() => { if (localStorage.getItem(SOUND_KEY) !== "off") playSound(); setView("shop"); }}
+              className="rounded-full border border-white bg-black px-10 py-3 text-[11px] font-medium tracking-[0.18em] text-white uppercase"
+            >
               {t.enter}
             </button>
           </div>
@@ -387,6 +421,16 @@ export function LuvSickApp() {
               <button type="button" onClick={toggleSound} className="grid size-11 place-items-center" aria-pressed={soundOn} aria-label={soundOn ? t.mute : t.sound}>
                 <SpeakerIcon on={soundOn} />
               </button>
+              <button
+                type="button"
+                onClick={() => { setWishOnly((on) => !on); setView("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                className="relative grid size-11 place-items-center"
+                aria-pressed={wishOnly}
+                aria-label={t.wish}
+              >
+                <HeartIcon on={wishOnly || wish.length > 0} />
+                {wish.length > 0 ? <span className="absolute top-0 right-0 grid min-w-5 place-items-center rounded-full bg-[#1a1714] px-1 text-[10px] font-bold text-white">{wish.length}</span> : null}
+              </button>
               <button type="button" onClick={() => setView("bag")} className="relative grid size-11 place-items-center" aria-label={`${t.bag}${pieces ? ` ${pieces}` : ""}`}>
                 <BagIcon />
                 {pieces > 0 ? <span className="absolute top-0 right-0 grid min-w-5 place-items-center rounded-full bg-[#1a1714] px-1 text-[10px] font-bold text-white">{pieces}</span> : null}
@@ -429,7 +473,7 @@ export function LuvSickApp() {
                 </div>
               </section>
               <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
-              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => addProduct(id, "M")} />
+              <Catalog market={market} lang={lang} stock={stock} known={stockKnown} wish={wish} wishOnly={wishOnly} onWish={toggleWish} onShare={shareProduct} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} onBuy={(id) => addProduct(id, "M")} />
             </>
           ) : null}
           {view === "product" ? (
@@ -443,6 +487,9 @@ export function LuvSickApp() {
               onSize={setSize}
               onAdd={addCurrent}
               left={available(product.id, size)}
+              wished={wish.includes(product.id)}
+              onWish={() => toggleWish(product.id)}
+              onShare={() => shareProduct(product.id)}
             />
           ) : null}
           {view === "bag" ? <BagView lines={lines} lang={lang} market={market} priced={priced} onQty={setQty} onCheckout={() => setView("checkout")} /> : null}
@@ -708,13 +755,16 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
   );
 }
 
-function Catalog({ market, lang, stock, known, onOpen, onBuy }: { market: Market; lang: Lang; stock: Record<string, number>; known: boolean; onOpen: (id: string) => void; onBuy: (id: string) => void }) {
+function Catalog({ market, lang, stock, known, wish, wishOnly, onWish, onShare, onOpen, onBuy }: { market: Market; lang: Lang; stock: Record<string, number>; known: boolean; wish: string[]; wishOnly: boolean; onWish: (id: string) => void; onShare: (id: string) => void; onOpen: (id: string) => void; onBuy: (id: string) => void }) {
   const t = COPY[lang];
+  const items = wishOnly ? PRODUCTS.filter((item) => wish.includes(item.id)) : PRODUCTS;
   return (
     <main id="loja" className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:grid-cols-3">
-      <h2 className="text-xs tracking-[0.28em] uppercase sm:col-span-3">{t.arrivals}</h2>
-      {PRODUCTS.map((item) => {
+      <h2 className="text-xs tracking-[0.28em] uppercase sm:col-span-3">{wishOnly ? t.wish : t.arrivals}</h2>
+      {items.length === 0 && wishOnly ? <p className="sm:col-span-3">{t.wishEmpty}</p> : null}
+      {items.map((item) => {
         const gone = known && SIZES.every((size) => (stock[`${item.id}|${size}`] ?? 0) <= 0);
+        const saved = wish.includes(item.id);
         return (
           <article key={item.id} className="grid text-left text-[#1a1714]">
             <button type="button" onClick={() => onOpen(item.id)} className="aspect-[3/4] overflow-hidden bg-white">
@@ -723,9 +773,17 @@ function Catalog({ market, lang, stock, known, onOpen, onBuy }: { market: Market
             <div className="grid gap-2 py-3">
               <p className="text-sm tracking-wide">{item.name[lang]}</p>
               <p className="text-sm">{gone ? t.soldOut : formatMoney(item, market)}</p>
-              <button type="button" onClick={() => onBuy(item.id)} disabled={gone} className="btn-brown w-fit rounded-full px-5 py-2 disabled:bg-[#1a1714]/30">
-                {gone ? t.soldOut : t.buy}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => onBuy(item.id)} disabled={gone} className="btn-brown w-fit rounded-full px-5 py-2 disabled:bg-[#1a1714]/30">
+                  {gone ? t.soldOut : t.buy}
+                </button>
+                <button type="button" onClick={() => onWish(item.id)} aria-pressed={saved} aria-label={saved ? t.wishOn : t.wish} className="grid size-10 place-items-center rounded-full ring-1 ring-[#1a1714]">
+                  <HeartIcon on={saved} />
+                </button>
+                <button type="button" onClick={() => onShare(item.id)} aria-label={t.share} className="grid size-10 place-items-center rounded-full ring-1 ring-[#1a1714]">
+                  <WaIcon />
+                </button>
+              </div>
             </div>
           </article>
         );
@@ -744,6 +802,9 @@ function ProductView({
   onSize,
   onAdd,
   left,
+  wished,
+  onWish,
+  onShare,
 }: {
   product: Product;
   lang: Lang;
@@ -754,6 +815,9 @@ function ProductView({
   onSize: (size: string) => void;
   onAdd: () => void;
   left: number;
+  wished: boolean;
+  onWish: () => void;
+  onShare: () => void;
 }) {
   const t = COPY[lang];
   return (
@@ -787,7 +851,15 @@ function ProductView({
           </button>
         ))}
       </div>
-      <button type="button" onClick={onAdd} disabled={left < 1} className="btn-brown w-fit rounded-full px-5 py-3">{left < 1 ? t.soldOut : t.add}</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onAdd} disabled={left < 1} className="btn-brown w-fit rounded-full px-5 py-3">{left < 1 ? t.soldOut : t.add}</button>
+        <button type="button" onClick={onWish} aria-pressed={wished} aria-label={wished ? t.wishOn : t.wish} className="grid size-11 place-items-center rounded-full ring-1 ring-[#1a1714]">
+          <HeartIcon on={wished} />
+        </button>
+        <button type="button" onClick={onShare} aria-label={t.share} className="grid size-11 place-items-center rounded-full ring-1 ring-[#1a1714]">
+          <WaIcon />
+        </button>
+      </div>
       <p className="text-sm text-[#1a1714]/70">{left < 1 ? t.noStock : t.left.replace("{n}", String(left))}</p>
     </article>
   );
@@ -921,6 +993,20 @@ function Faq({ lang, open, onToggle }: { lang: Lang; open: number | null; onTogg
         {open === -1 ? <p className="pb-3 text-[#1a1714]/75">{contactLine(lang)}</p> : null}
       </div>
     </section>
+  );
+}
+
+
+function HeartIcon({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
+      <path
+        fill={on ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"
+      />
+    </svg>
   );
 }
 

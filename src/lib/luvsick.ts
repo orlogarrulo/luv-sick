@@ -159,6 +159,10 @@ type Dict = {
   size: string;
   add: string;
   buy: string;
+  wish: string;
+  wishOn: string;
+  wishEmpty: string;
+  share: string;
   added: string;
   qty: string;
   remove: string;
@@ -233,6 +237,10 @@ export const COPY: Record<Lang, Dict> = {
     size: "Tamanho",
     add: "Juntar ao saco",
     buy: "Comprar",
+    wish: "Lista de desejos",
+    wishOn: "Guardado",
+    wishEmpty: "A lista de desejos está vazia.",
+    share: "Partilhar",
     added: "No saco",
     qty: "Quantidade",
     remove: "Tirar",
@@ -289,8 +297,8 @@ export const COPY: Record<Lang, Dict> = {
     mute: "Sem som",
     tags: ["#LuvSick", "#FeitoPorNós", "#Angola", "#Moda"],
     founders: [
-      { name: "Alessandro Arrulo", role: "18 anos · design", mark: "✂️", text: "O corte, o gráfico, o coração na peça. Se está na roupa, passou por ele. A encomenda também: responde ele." },
-      { name: "Kalyani Ngenohame", role: "17 anos · marketing", mark: "📣", text: "A voz da marca é com ele. O que se diz e o que se vê lá fora. Quando compras, falas com ele." },
+      { name: "Alessandro Arrulo", role: "Design", mark: "✂️", text: "O corte, o gráfico, o coração na peça. Se está na roupa, passou por ele. A encomenda também: responde ele." },
+      { name: "Kalyani Ngenohame", role: "Marketing", mark: "📣", text: "A voz da marca é com ele. O que se diz e o que se vê lá fora. Quando compras, falas com ele." },
     ],
     orderLead: "Encomenda enviada pelo site Luv Sick. Fico a aguardar as instruções de pagamento.",
     faqs: [
@@ -314,6 +322,10 @@ export const COPY: Record<Lang, Dict> = {
     size: "Size",
     add: "Add to bag",
     buy: "Buy",
+    wish: "Wishlist",
+    wishOn: "Saved",
+    wishEmpty: "Your wishlist is empty.",
+    share: "Share",
     added: "In the bag",
     qty: "Quantity",
     remove: "Remove",
@@ -370,8 +382,8 @@ export const COPY: Record<Lang, Dict> = {
     mute: "Mute",
     tags: ["#LuvSick", "#MadeByUs", "#Angola", "#Fashion"],
     founders: [
-      { name: "Alessandro Arrulo", role: "18 · design", mark: "✂️", text: "The cut, the graphic, the heart on the piece. If it's on the clothes, it went through him. Your order too: he answers." },
-      { name: "Kalyani Ngenohame", role: "17 · marketing", mark: "📣", text: "The brand's voice is his. What gets said, and what you see out there. When you buy, you talk to him." },
+      { name: "Alessandro Arrulo", role: "Design", mark: "✂️", text: "The cut, the graphic, the heart on the piece. If it's on the clothes, it went through him. Your order too: he answers." },
+      { name: "Kalyani Ngenohame", role: "Marketing", mark: "📣", text: "The brand's voice is his. What gets said, and what you see out there. When you buy, you talk to him." },
     ],
     orderLead: "Order sent from the Luv Sick site. I'll wait for the payment instructions.",
     faqs: [
@@ -395,6 +407,10 @@ export const COPY: Record<Lang, Dict> = {
     size: "Taille",
     add: "Ajouter au sac",
     buy: "Acheter",
+    wish: "Liste d'envies",
+    wishOn: "Gardé",
+    wishEmpty: "La liste d'envies est vide.",
+    share: "Partager",
     added: "Dans le sac",
     qty: "Quantité",
     remove: "Retirer",
@@ -451,8 +467,8 @@ export const COPY: Record<Lang, Dict> = {
     mute: "Muet",
     tags: ["#LuvSick", "#FaitParNous", "#Angola", "#Mode"],
     founders: [
-      { name: "Alessandro Arrulo", role: "18 ans · design", mark: "✂️", text: "La coupe, le graphique, le cœur sur la pièce. Si c'est sur le vêtement, c'est passé par lui. Ta commande aussi : c'est lui qui répond." },
-      { name: "Kalyani Ngenohame", role: "17 ans · marketing", mark: "📣", text: "La voix de la marque, c'est lui. Ce qui se dit, et ce qui se voit dehors. Quand tu achètes, tu lui parles." },
+      { name: "Alessandro Arrulo", role: "Design", mark: "✂️", text: "La coupe, le graphique, le cœur sur la pièce. Si c'est sur le vêtement, c'est passé par lui. Ta commande aussi : c'est lui qui répond." },
+      { name: "Kalyani Ngenohame", role: "Marketing", mark: "📣", text: "La voix de la marque, c'est lui. Ce qui se dit, et ce qui se voit dehors. Quand tu achètes, tu lui parles." },
     ],
     orderLead: "Commande envoyée depuis le site Luv Sick. J'attends les instructions de paiement.",
     faqs: [
