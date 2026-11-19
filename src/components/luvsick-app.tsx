@@ -657,7 +657,7 @@ export function LuvSickApp() {
                   </button>
                 </div>
               </section>
-              <DetailReel />
+              <DetailReel lang={lang} onOpen={(id) => { setProductId(id); setShot(0); setSize("M"); setView("product"); window.scrollTo(0, 0); }} />
             </>
           ) : null}
           {view === "store" ? (
@@ -1017,11 +1017,14 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
   },
 };
 
-function DetailReel() {
+function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void }) {
   const ids = ["tracksuit-brown", "long-sleeve", "tracksuit-black"];
   const [index, setIndex] = useState(0);
+  const drag = useRef({ x: 0, moved: false });
   const id = ids[index];
   const spin = SPIN[id];
+  const product = productById(id);
+  const line = product?.material[lang].split(".")[0] ?? "";
   const [turn, setTurn] = useState(0);
 
   useEffect(() => {
@@ -1036,7 +1039,22 @@ function DetailReel() {
   }, [id, spin.video, ids.length]);
 
   return (
-    <section className="bg-white">
+    <section
+      className="bg-white"
+      onPointerDown={(event) => {
+        drag.current = { x: event.clientX, moved: false };
+      }}
+      onPointerUp={(event) => {
+        const dx = event.clientX - drag.current.x;
+        if (dx > 48) {
+          drag.current.moved = true;
+          setIndex((current) => (current + ids.length - 1) % ids.length);
+        } else if (dx < -48) {
+          drag.current.moved = true;
+          setIndex((current) => (current + 1) % ids.length);
+        }
+      }}
+    >
       <div className="relative mx-auto flex h-[70vh] max-h-[760px] w-full max-w-3xl items-center justify-center bg-white">
         {spin.video ? (
           <video
@@ -1051,16 +1069,37 @@ function DetailReel() {
         ) : (
           <img src={spin.stills?.[turn]} alt="" className="max-h-full max-w-full object-contain" />
         )}
+        <button
+          type="button"
+          onClick={() => {
+            if (!drag.current.moved) onOpen(id);
+          }}
+          className="absolute inset-0"
+          aria-label={product?.name[lang] ?? ""}
+        />
       </div>
-      <div className="flex justify-center gap-2 px-4 py-4">
-        {ids.map((item, dot) => (
-          <button
-            key={item}
-            type="button"
-            aria-label={`${dot + 1}`}
-            onClick={() => setIndex(dot)}
-            className={`size-2 rounded-full ${dot === index ? "bg-[#1a1714]" : "bg-[#1a1714]/25"}`}
-          />
+      <div className="flex items-center gap-4 px-4 py-3 sm:px-8">
+        <p className="min-w-0 flex-1 truncate text-left text-[11px] tracking-[0.22em] text-[#1a1714] uppercase">
+          {product?.name[lang]} · {line}
+        </p>
+        <div className="flex shrink-0 gap-2">
+          {ids.map((item, dot) => (
+            <button
+              key={item}
+              type="button"
+              aria-label={`${dot + 1}`}
+              onClick={() => setIndex(dot)}
+              className={`size-2 rounded-full ${dot === index ? "bg-[#1a1714]" : "bg-[#1a1714]/25"}`}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="mx-auto flex max-w-lg justify-center gap-4 px-4 pb-10">
+        {([{ src: spin.a, label: spin.la[lang] }, { src: spin.b, label: spin.lb[lang] }] as const).map((item) => (
+          <button key={item.src} type="button" onClick={() => onOpen(id)} className="w-36 text-left sm:w-44">
+            <img src={item.src} alt={item.label} className="h-40 w-full rounded-2xl object-cover sm:h-48" />
+            <span className="mt-2 block text-[11px] tracking-[0.22em] uppercase">{item.label}</span>
+          </button>
         ))}
       </div>
     </section>
