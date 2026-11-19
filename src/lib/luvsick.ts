@@ -169,6 +169,7 @@ type Dict = {
   wishOn: string;
   wishEmpty: string;
   share: string;
+  shareLine: string;
   reserve: string;
   reserveOk: string;
   halfNow: string;
@@ -257,6 +258,7 @@ export const COPY: Record<Lang, Dict> = {
     wishOn: "Guardado",
     wishEmpty: "A lista de desejos está vazia.",
     share: "Partilhar",
+    shareLine: "Olha esta peça da Luv Sick: {name}",
     reserve: "Reservar",
     reserveOk: "Reserva feita. Pagaste 50%.",
     halfNow: "A pagar agora, 50%",
@@ -352,6 +354,7 @@ export const COPY: Record<Lang, Dict> = {
     wishOn: "Saved",
     wishEmpty: "Your wishlist is empty.",
     share: "Share",
+    shareLine: "Look at this Luv Sick piece: {name}",
     reserve: "Reserve",
     reserveOk: "Reservation placed. You paid 50%.",
     halfNow: "Pay now, 50%",
@@ -447,6 +450,7 @@ export const COPY: Record<Lang, Dict> = {
     wishOn: "Gardé",
     wishEmpty: "La liste d'envies est vide.",
     share: "Partager",
+    shareLine: "Regarde cette pièce Luv Sick : {name}",
     reserve: "Réserver",
     reserveOk: "Réservation faite. Tu as payé 50 %.",
     halfNow: "À payer maintenant, 50 %",

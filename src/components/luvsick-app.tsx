@@ -136,8 +136,11 @@ export function LuvSickApp() {
   }
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const linkedLang = params.get("l");
     const savedLang = localStorage.getItem(LANG_KEY);
-    if (savedLang === "pt" || savedLang === "en" || savedLang === "fr") setLang(savedLang);
+    if (linkedLang === "pt" || linkedLang === "en" || linkedLang === "fr") setLang(linkedLang);
+    else if (savedLang === "pt" || savedLang === "en" || savedLang === "fr") setLang(savedLang);
     const savedMarket = localStorage.getItem(MARKET_KEY);
     if (savedMarket === "PT" || savedMarket === "AO") {
       setMarket(savedMarket);
@@ -152,7 +155,7 @@ export function LuvSickApp() {
     } catch {
       setWish([]);
     }
-    const opened = new URLSearchParams(window.location.search).get("p");
+    const opened = params.get("p");
     if (opened && productById(opened)) {
       setProductId(opened);
       setView("product");
@@ -213,9 +216,14 @@ export function LuvSickApp() {
   function shareProduct(id: string) {
     const item = productById(id);
     if (!item) return;
-    const url = `${window.location.origin}/?p=${encodeURIComponent(id)}&card=1`;
-    const text = `${item.name[lang]} — Luv Sick\n${url}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+    const url = `${window.location.origin}/?p=${encodeURIComponent(id)}&l=${lang}&card=1`;
+    const text = t.shareLine.replace("{name}", item.name[lang]);
+    const payload = { title: `${item.name[lang]} — Luv Sick`, text, url };
+    if (typeof navigator.share === "function") {
+      navigator.share(payload).catch(() => undefined);
+      return;
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, "_blank", "noopener,noreferrer");
   }
 
   function chooseLang(next: Lang) {
@@ -906,7 +914,7 @@ function Catalog({ market, lang, stock, known, stockIn, wish, wishOnly, onWish, 
                   <HeartIcon on={saved} />
                 </button>
                 <button type="button" onClick={() => onShare(item.id)} aria-label={t.share} className="grid size-10 place-items-center rounded-full ring-1 ring-[#1a1714]">
-                  <WaIcon />
+                  <ShareIcon />
                 </button>
               </div>
             </div>
@@ -984,7 +992,7 @@ function ProductView({
           <HeartIcon on={wished} />
         </button>
         <button type="button" onClick={onShare} aria-label={t.share} className="grid size-11 place-items-center rounded-full ring-1 ring-[#1a1714]">
-          <WaIcon />
+          <ShareIcon />
         </button>
       </div>
       <p className="text-sm text-[#1a1714]/70">{left < 1 ? t.noStock : t.left.replace("{n}", String(left))}</p>
@@ -1156,6 +1164,17 @@ function BagIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-6" aria-hidden>
       <path fill="none" stroke="currentColor" strokeWidth="1.8" d="M6 8h12l-1 12H7L6 8zm3 0V6a3 3 0 0 1 6 0v2" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
+      <circle cx="6" cy="12" r="2.1" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="17" cy="6.5" r="2.1" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="17" cy="17.5" r="2.1" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path fill="none" stroke="currentColor" strokeWidth="1.6" d="M8 11.2 14.8 7.6M8 12.8l6.8 3.6" />
     </svg>
   );
 }

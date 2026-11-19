@@ -43,9 +43,11 @@ function rewriteProductCard(html: string, url: URL, host: string) {
   if (!product || !html.includes('property="og:image"')) return html;
   const cleanHost = host.split(",")[0]?.trim().replace(/:\d+$/, "") || url.host;
   const image = `https://${cleanHost}${product.images[0]}`;
-  const title = `${product.name.pt} — Luv Sick`;
-  const description = product.blurb.pt;
-  const page = `https://${cleanHost}/?p=${encodeURIComponent(product.id)}`;
+  const asked = url.searchParams.get("l");
+  const lang = asked === "en" || asked === "fr" || asked === "pt" ? asked : "pt";
+  const title = `${product.name[lang]} — Luv Sick`;
+  const description = product.blurb[lang];
+  const page = `https://${cleanHost}/?p=${encodeURIComponent(product.id)}&l=${lang}&card=1`;
   return html
     .replace(
       /<meta property="og:title" content="[^"]*">/,
