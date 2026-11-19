@@ -1313,24 +1313,88 @@ function PayMark({ paid, done, wait }: { paid: boolean; done: string; wait: stri
 
 function PhoneField({ iso, local, label, error, onIso, onLocal }: { iso: string; local: string; label: string; error?: string; onIso: (iso: string) => void; onLocal: (value: string) => void }) {
   const dial = dialOf(iso);
+  const prefix = `${dial} `;
+  const country = DIALS.find((item) => item.iso === iso);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const box = useRef<HTMLSpanElement>(null);
+  const list = DIALS.filter((item) => item.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  useEffect(() => {
+    if (!open) return;
+    function close(event: PointerEvent) {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
+
+  function national(value: string) {
+    if (value.startsWith(prefix)) return value.slice(prefix.length).replace(/\D/g, "");
+    const code = dial.replace(/\D/g, "");
+    const digits = value.replace(/\D/g, "");
+    return digits.startsWith(code) ? digits.slice(code.length) : digits;
+  }
+
   return (
     <label className="grid gap-1 text-sm font-bold">
       {label}
       <span className="flex gap-2">
-        <select value={iso} onChange={(event) => onIso(event.target.value)} aria-label={label} className="w-[46%] rounded-2xl border border-[#1a1714]/20 bg-white px-2 py-3 font-normal text-[#1a1714]">
-          {DIALS.map((item) => (
-            <option key={item.iso} value={item.iso}>{item.dial} {item.name}</option>
-          ))}
-        </select>
+        <span ref={box} className="relative w-[46%]">
+          <button
+            type="button"
+            aria-label={label}
+            aria-expanded={open}
+            onClick={() => setOpen((on) => !on)}
+            className="flex w-full items-center gap-2 rounded-2xl border border-[#1a1714]/20 bg-white px-2 py-3 text-left font-normal text-[#1a1714]"
+          >
+            <Flag iso={iso} />
+            <span className="min-w-0 flex-1 truncate">{country?.name ?? iso}</span>
+          </button>
+          {open ? (
+            <span className="absolute z-30 mt-1 grid max-h-64 w-64 gap-1 overflow-auto rounded-2xl border border-[#1a1714]/15 bg-white p-2">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={country?.name ?? ""}
+                className="rounded-xl border border-[#1a1714]/15 px-2 py-2 font-normal"
+              />
+              {list.map((item) => (
+                <button
+                  key={item.iso}
+                  type="button"
+                  onClick={() => { onIso(item.iso); setOpen(false); setQuery(""); }}
+                  className="flex items-center gap-2 rounded-xl px-2 py-2 text-left font-normal hover:bg-[#f4f1ec]"
+                >
+                  <Flag iso={item.iso} />
+                  <span className="truncate">{item.name}</span>
+                </button>
+              ))}
+            </span>
+          ) : null}
+        </span>
         <input
-          value={local}
+          value={prefix + local}
           inputMode="tel"
-          autoComplete="tel-national"
-          onChange={(event) => {
-            const code = dial.replace(/\D/g, "");
-            let digits = event.target.value.replace(/\D/g, "");
-            if (digits.startsWith(code) && digits.length > code.length + 4) digits = digits.slice(code.length);
-            onLocal(digits);
+          autoComplete="tel"
+          onChange={(event) => onLocal(national(event.target.value))}
+          onKeyDown={(event) => {
+            const input = event.currentTarget;
+            const start = input.selectionStart ?? 0;
+            const end = input.selectionEnd ?? 0;
+            if (event.key === "Backspace" && end <= prefix.length) event.preventDefault();
+            if (event.key === "Delete" && start < prefix.length) event.preventDefault();
+            if ((event.key === "Backspace" || event.key === "Delete") && start < prefix.length && end > prefix.length) {
+              event.preventDefault();
+              onLocal(local.slice(end - prefix.length));
+            }
+          }}
+          onSelect={(event) => {
+            const input = event.currentTarget;
+            if ((input.selectionStart ?? 0) < prefix.length) {
+              const end = Math.max(prefix.length, input.selectionEnd ?? prefix.length);
+              window.requestAnimationFrame(() => input.setSelectionRange(prefix.length, end));
+            }
           }}
           className="min-w-0 flex-1 rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal text-[#1a1714]"
         />
@@ -1338,6 +1402,10 @@ function PhoneField({ iso, local, label, error, onIso, onLocal }: { iso: string;
       {error ? <span className="font-normal text-[#1a1714]/70">{error}</span> : null}
     </label>
   );
+}
+
+function Flag({ iso }: { iso: string }) {
+  return <img src={`https://flagcdn.com/24x18/${iso.toLowerCase()}.png`} alt="" width={24} height={18} className="h-[18px] w-6 shrink-0 rounded-sm object-cover" />;
 }
 
 function phoneBits(code: "AO" | "PT") {
