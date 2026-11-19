@@ -95,6 +95,11 @@ export function kzAmount(product: Product) {
   return Math.round((product.priceEur * UNIT_KZ) / 1000) * 1000;
 }
 
+export function splitHalf(total: number) {
+  const deposit = Math.round(total / 2);
+  return { deposit, balance: total - deposit };
+}
+
 export function formatAmount(amount: number, market: Market) {
   if (market === "AO") return `${String(amount).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} Kz`;
   return `${amount} €`;
@@ -165,6 +170,11 @@ type Dict = {
   share: string;
   reserve: string;
   reserveOk: string;
+  halfNow: string;
+  halfLater: string;
+  receiptWord: string;
+  invoiceWord: string;
+  mailed: string;
   email: string;
   emailBad: string;
   added: string;
@@ -246,7 +256,12 @@ export const COPY: Record<Lang, Dict> = {
     wishEmpty: "A lista de desejos está vazia.",
     share: "Partilhar",
     reserve: "Reservar",
-    reserveOk: "Reserva recebida. As entregas começam a 15 de dezembro.",
+    reserveOk: "Reserva feita. Pagaste 50%.",
+    halfNow: "A pagar agora, 50%",
+    halfLater: "Os outros 50% pagam-se no dia do recebimento, data a combinar.",
+    receiptWord: "Recibo",
+    invoiceWord: "Fatura",
+    mailed: "Enviámos o recibo e a fatura para o teu email.",
     email: "Email",
     emailBad: "Escreve um email válido.",
     added: "No saco",
@@ -335,7 +350,12 @@ export const COPY: Record<Lang, Dict> = {
     wishEmpty: "Your wishlist is empty.",
     share: "Share",
     reserve: "Reserve",
-    reserveOk: "Reservation received. Deliveries start on 15 December.",
+    reserveOk: "Reservation placed. You paid 50%.",
+    halfNow: "Pay now, 50%",
+    halfLater: "The other 50% is paid on the day you receive the order. The date is to be arranged.",
+    receiptWord: "Receipt",
+    invoiceWord: "Invoice",
+    mailed: "We sent the receipt and the invoice to your email.",
     email: "Email",
     emailBad: "Enter a valid email.",
     added: "In the bag",
@@ -424,7 +444,12 @@ export const COPY: Record<Lang, Dict> = {
     wishEmpty: "La liste d'envies est vide.",
     share: "Partager",
     reserve: "Réserver",
-    reserveOk: "Réservation reçue. Les livraisons commencent le 15 décembre.",
+    reserveOk: "Réservation faite. Tu as payé 50 %.",
+    halfNow: "À payer maintenant, 50 %",
+    halfLater: "Les autres 50 % se paient le jour de la réception. La date est à convenir.",
+    receiptWord: "Reçu",
+    invoiceWord: "Facture",
+    mailed: "Nous avons envoyé le reçu et la facture à ton e-mail.",
     email: "E-mail",
     emailBad: "Écris un e-mail valide.",
     added: "Dans le sac",

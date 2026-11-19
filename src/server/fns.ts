@@ -394,7 +394,7 @@ export const luvSaveCoupon = createServerFn({ method: "POST" })
 export const luvMode = createServerFn({ method: "POST" }).handler(async () => (await luvApi()).luvMode());
 
 export const luvReserve = createServerFn({ method: "POST" })
-  .validator((data: { name: string; phone: string; email: string; lines: { productId: string; size: string; qty: number }[] }) => data)
+  .validator((data: { name: string; phone: string; email: string; pay: string; market: string; lines: { productId: string; size: string; qty: number }[] }) => data)
   .handler(async ({ data }) => (await luvApi()).luvReserve(data));
 
 export const luvSetStockIn = createServerFn({ method: "POST" })
@@ -404,3 +404,12 @@ export const luvSetStockIn = createServerFn({ method: "POST" })
 export const luvMarkReservations = createServerFn({ method: "POST" })
   .validator((data: { code: string; kind: string; ids: string[] }) => data)
   .handler(async ({ data }) => (await luvApi()).luvMarkReservations(data.code, data.kind, data.ids));
+
+export const luvReservePaper = createServerFn({ method: "POST" })
+  .validator((data: { ref: string }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvReservePaper(data.ref));
+
+export const luvResendReserve = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvResendReserve(data.code, data.id));
+

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PRODUCTS, SIZES } from "@/lib/luvsick";
-import { luvAckOrder, luvDesk, luvIssueReceipt, luvMarkReservations, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
+import { luvAckOrder, luvDesk, luvIssueReceipt, luvMarkReservations, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number };
 type Line = { productId: string; size: string; qty: number };
@@ -33,18 +33,28 @@ type Reservation = {
   lines: Line[];
   receivedSent?: boolean;
   stockSent?: boolean;
+  totalLabel?: string;
+  depositLabel?: string;
+  balanceLabel?: string;
+  pay?: string;
+  receiptNo?: string;
+  invoiceNo?: string;
+  emailed?: boolean;
 };
 
 const RECEIVED_ALL = `Olá,
 
 Recebemos a tua reserva na Luv Sick.
+Pagaste 50%. O recibo e a fatura dos outros 50% seguem por email.
+Os outros 50% pagam-se no dia do recebimento, data a combinar.
 As entregas começam a 15 de dezembro.
 
 Luv Sick`;
 
 const STOCK_ALL = `Olá,
 
-A tua reserva já está disponível. Podes realizar o pagamento.
+A tua reserva já pode ser entregue.
+O restante de 50% paga-se no dia do recebimento, data a combinar.
 
 Luv Sick`;
 
@@ -57,12 +67,15 @@ function lineLabel(lines: Line[]) {
     .join("\n");
 }
 
-function personalMessage(kind: "received" | "stock", name: string, lines: Line[]) {
-  const items = lineLabel(lines);
+function personalMessage(kind: "received" | "stock", item: Reservation) {
+  const items = lineLabel(item.lines);
+  const money = item.depositLabel
+    ? `Pago agora (50%): ${item.depositLabel}\nRestante (50%): ${item.balanceLabel}\nData de pagamento do restante: a combinar, no dia do recebimento.`
+    : "Os outros 50% pagam-se no dia do recebimento, data a combinar.";
   if (kind === "stock") {
-    return `Olá ${name},\n\nA tua reserva já está disponível. Podes realizar o pagamento.\n${items}\n\nLuv Sick`;
+    return `Olá ${item.name},\n\nA tua reserva já pode ser entregue.\n${items}\n${money}\n\nLuv Sick`;
   }
-  return `Olá ${name},\n\nRecebemos a tua reserva na Luv Sick.\n${items}\n\nAs entregas começam a 15 de dezembro.\n\nLuv Sick`;
+  return `Olá ${item.name},\n\nRecebemos a tua reserva na Luv Sick.\n${items}\n${money}\nAs entregas começam a 15 de dezembro.\n\nLuv Sick`;
 }
 
 function waDigits(phone: string) {
@@ -352,16 +365,32 @@ export function LuvSickDesk() {
             {reservations.length === 0 ? <p>Ainda não há reservas.</p> : null}
             <ul className="grid gap-2">
               {reservations.map((item) => {
-                const note = personalMessage(stockIn ? "stock" : "received", item.name, item.lines);
+                const note = personalMessage(stockIn ? "stock" : "received", item);
                 const qty = item.lines.reduce((sum, line) => sum + line.qty, 0);
                 return (
                   <li key={item.id} className="grid gap-2 bg-white p-3 text-sm text-black">
                     <p className="font-bold">{item.ref} · {item.name}</p>
                     <p>{item.phone} · {item.email}</p>
                     <p>{lineLabel(item.lines)} · {qty}</p>
-                    <p className="text-black/60">{item.receivedSent ? "Receção enviada. " : ""}{item.stockSent ? "Lembrete de stock enviado." : ""}</p>
+                    {item.depositLabel ? <p>Pago 50%: {item.depositLabel}{item.pay ? ` · ${item.pay}` : ""}</p> : null}
+                    {item.balanceLabel ? <p>Fatura 50%: {item.balanceLabel} · a combinar, no dia do recebimento</p> : null}
+                    <p className="text-black/60">{item.receivedSent ? "Receção enviada. " : ""}{item.stockSent ? "Lembrete de stock enviado. " : ""}{item.emailed ? "Email enviado." : "Email por enviar."}</p>
                     <pre className="whitespace-pre-wrap font-sans">{note}</pre>
                     <a href={`https://wa.me/${waDigits(item.phone)}?text=${encodeURIComponent(note)}`} target="_blank" rel="noreferrer" className="font-bold underline">WhatsApp desta pessoa</a>
+                    {item.receiptNo ? <a href={`/recibo/${item.ref}`} className="font-bold underline">{item.receiptNo} · {item.invoiceNo}</a> : null}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await luvResendReserve({ data: { code, id: item.id } });
+                        if (!res.ok) return;
+                        setReservations((current) => current.map((row) => (row.id === item.id ? { ...row, emailed: res.emailed || row.emailed } : row)));
+                        setCopied(res.emailed ? "email" : "");
+                        if (!res.emailed) setError("O email não saiu. Confirma o envio no serviço de email.");
+                      }}
+                      className="w-fit bg-black px-3 py-2 font-bold text-white"
+                    >
+                      Reenviar recibo e fatura
+                    </button>
                   </li>
                 );
               })}

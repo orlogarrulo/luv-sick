@@ -13,6 +13,7 @@ import {
   payUnit,
   productById,
   quote,
+  splitHalf,
   type Lang,
   type Market,
   type Product,
@@ -93,6 +94,7 @@ export function LuvSickApp() {
   const [stockIn, setStockIn] = useState(false);
   const [email, setEmail] = useState("");
   const [kind, setKind] = useState<"order" | "reserve">("order");
+  const [paper, setPaper] = useState({ deposit: "", balance: "", total: "", receiptNo: "", invoiceNo: "", emailed: false });
   const sound = useRef<HTMLAudioElement | null>(null);
   const t = COPY[lang];
   const product = productById(productId) ?? PRODUCTS[0];
@@ -316,17 +318,26 @@ export function LuvSickApp() {
     if (!form.phone.trim()) next.phone = t.required;
     setErrors(next);
     const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-    if (Object.keys(next).length || !mailOk || lines.length === 0) {
+    if (!pay) setPayError(t.required);
+    if (Object.keys(next).length || !mailOk || !pay || lines.length === 0) {
       if (!mailOk) setOrderError(t.emailBad);
       return;
     }
-    const placed = await luvReserve({ data: { lines, name: form.name, phone: form.phone, email } });
+    const placed = await luvReserve({ data: { lines, name: form.name, phone: form.phone, email, pay, market } });
     if (!placed.ok) {
       setOrderError(placed.error === "closed" ? t.buy : t.required);
       if (placed.error === "closed") setStockIn(true);
       return;
     }
     setRefCode(placed.ref);
+    setPaper({
+      deposit: placed.depositLabel,
+      balance: placed.balanceLabel,
+      total: placed.totalLabel,
+      receiptNo: placed.receiptNo,
+      invoiceNo: placed.invoiceNo,
+      emailed: placed.emailed,
+    });
     setOrderError("");
     setKind("reserve");
     setView("sent");
@@ -536,6 +547,10 @@ export function LuvSickApp() {
                   return <li key={`${line.productId}-${line.size}`} className="text-sm">{item.name[lang]} · {line.size} · {line.qty}</li>;
                 })}
               </ul>
+              <p className="text-sm">{t.total} {formatAmount(priced.total, market)}</p>
+              <p className="font-bold">{t.halfNow}: {formatAmount(splitHalf(priced.total).deposit, market)}</p>
+              <p className="text-sm text-[#1a1714]/70">{t.halfLater}</p>
+              <p className="text-sm">{t.invoiceWord}: {formatAmount(splitHalf(priced.total).balance, market)}</p>
               {(["name", "phone"] as const).map((key) => (
                 <label key={key} className="grid gap-1 text-sm font-bold">
                   {t[key]}
@@ -548,7 +563,17 @@ export function LuvSickApp() {
                 <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-2xl border border-[#1a1714]/20 bg-white px-3 py-3 font-normal" />
               </label>
               {orderError ? <p className="text-sm">{orderError}</p> : null}
-              <button className="btn-brown w-fit rounded-full px-5 py-3">{t.reserve}</button>
+              <fieldset className="grid gap-2">
+                <legend className="text-sm font-bold">{t.pay}</legend>
+                {PAY[market].map((item) => (
+                  <label key={item.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${pay === item.id ? "border-[#1a1714] bg-[#1a1714] text-white" : "border-[#1a1714]/25"}`}>
+                    <input type="radio" name="reserve-pay" checked={pay === item.id} onChange={() => { setPay(item.id); setPayError(""); }} />
+                    <span className="font-bold">{item.label}</span>
+                  </label>
+                ))}
+                {payError ? <span className="text-sm text-[#1a1714]/70">{payError}</span> : null}
+              </fieldset>
+              <button className="btn-brown w-fit rounded-full px-5 py-3">{t.halfNow}</button>
             </form>
           ) : null}
           {view === "checkout" ? (
@@ -621,8 +646,13 @@ export function LuvSickApp() {
             <section className="mx-auto grid max-w-lg gap-4 px-4 py-8">
               <p className="text-sm font-bold tracking-[0.18em] uppercase text-[#1a1714]/70">{refCode}</p>
               <h1 className="text-3xl font-bold">{t.reserveOk}</h1>
+              <p>{t.halfLater}</p>
               <p>{form.name.trim()} · {form.phone.trim()}</p>
               <p>{email.trim()}</p>
+              <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {paper.deposit}</p>
+              <p className="font-bold">{t.invoiceWord} {paper.invoiceNo} · {paper.balance}</p>
+              <p className="text-sm text-[#1a1714]/70">{paper.emailed ? t.mailed : t.halfLater}</p>
+              <a href={`/recibo/${refCode}`} className="text-sm underline">{t.receiptWord} · {t.invoiceWord}</a>
               <ul className="grid gap-2">
                 {lines.map((line) => {
                   const item = productById(line.productId);

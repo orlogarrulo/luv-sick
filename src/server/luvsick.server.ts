@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { getSql } from "@/lib/db";
-import { PRODUCTS, SIZES, formatAmount, quote, type Market } from "@/lib/luvsick";
+import { PAY, PRODUCTS, SIZES, formatAmount, quote, splitHalf, type Market } from "@/lib/luvsick";
 
 const START_QTY = 5;
 const DESK_CODE = process.env.LUVSICK_DESK_CODE?.trim() || "LuvSick-1847";
@@ -51,6 +51,14 @@ async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) 
   );
   await sql.query(`create table if not exists luv_flags (key text primary key, value text not null)`);
   await sql.query(`insert into luv_flags (key, value) values ('stock_in', '0') on conflict (key) do nothing`);
+  await sql.query(`alter table luv_reservations add column if not exists total_label text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists deposit_label text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists balance_label text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists pay text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists market text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists receipt_no text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists invoice_no text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists emailed_at timestamptz`);
 }
 
 async function ensureStock() {
@@ -216,6 +224,14 @@ export type DeskReservation = {
   lines: Need[];
   receivedSent: boolean;
   stockSent: boolean;
+  totalLabel: string;
+  depositLabel: string;
+  balanceLabel: string;
+  pay: string;
+  market: string;
+  receiptNo: string;
+  invoiceNo: string;
+  emailed: boolean;
 };
 
 function mapReservation(row: Record<string, unknown>): DeskReservation {
@@ -236,6 +252,14 @@ function mapReservation(row: Record<string, unknown>): DeskReservation {
     lines,
     receivedSent: Boolean(row.received_sent),
     stockSent: Boolean(row.stock_sent),
+    totalLabel: String(row.total_label ?? ""),
+    depositLabel: String(row.deposit_label ?? ""),
+    balanceLabel: String(row.balance_label ?? ""),
+    pay: String(row.pay ?? ""),
+    market: String(row.market ?? ""),
+    receiptNo: String(row.receipt_no ?? ""),
+    invoiceNo: String(row.invoice_no ?? ""),
+    emailed: Boolean(row.emailed_at),
   };
 }
 
@@ -249,22 +273,128 @@ export async function luvMode() {
   return { stockIn: flag[0]?.value === "1" };
 }
 
-export async function luvReserve(input: { name: string; phone: string; email: string; lines: Need[] }) {
+function payLabel(market: string, pay: string) {
+  const list = market === "AO" || market === "PT" ? PAY[market] : [];
+  return list.find((item) => item.id === pay)?.label ?? "";
+}
+
+function reserveLetter(row: DeskReservation) {
+  const items = row.lines
+    .map((line) => {
+      const product = PRODUCTS.find((item) => item.id === line.productId);
+      return `- ${product?.name.pt ?? line.productId} · ${line.size} · ${line.qty}`;
+    })
+    .join("\n");
+  return [
+    `Olá ${row.name},`,
+    "",
+    "Recebemos a tua reserva na Luv Sick.",
+    "Pagaste 50% agora. Segue o recibo.",
+    "A fatura dos outros 50% tem pagamento a combinar, no dia do recebimento.",
+    "As entregas começam a 15 de dezembro.",
+    "",
+    `Reserva ${row.ref}`,
+    items,
+    "",
+    `RECIBO ${row.receiptNo}`,
+    `Pago agora (50%): ${row.depositLabel}`,
+    row.pay ? `Meio: ${row.pay}` : "",
+    "",
+    `FATURA ${row.invoiceNo}`,
+    `Em aberto (50%): ${row.balanceLabel}`,
+    "Data de pagamento: a combinar, no dia do recebimento.",
+    "",
+    `Total da reserva: ${row.totalLabel}`,
+    `Documentos: https://luvsickstore.com/recibo/${row.ref}`,
+    "",
+    "Luv Sick",
+  ].join("\n");
+}
+
+async function mailCustomer(to: string, subject: string, body: string) {
+  const key = process.env.RESEND_API_KEY?.trim();
+  const from = process.env.LUVSICK_FROM_EMAIL?.trim();
+  if (!key || !from) return false;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({ from, to: [to], subject, text: body }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function luvReserve(input: { name: string; phone: string; email: string; lines: Need[]; pay: string; market: string }) {
   const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const email = input.email.trim().toLowerCase();
-  if (!lines.length || !input.name.trim() || input.phone.trim().length < 6 || !emailOk(email)) {
+  const market: Market = input.market === "PT" ? "PT" : "AO";
+  const pay = payLabel(market, input.pay);
+  if (!lines.length || !input.name.trim() || input.phone.trim().length < 6 || !emailOk(email) || !pay) {
     return { ok: false as const, error: "form" as const };
   }
   const sql = await ensureStock();
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
   if (flag[0]?.value === "1") return { ok: false as const, error: "closed" as const };
+  const priced = quote(lines, market);
+  const parts = splitHalf(priced.total);
+  const totalLabel = formatAmount(priced.total, market);
+  const depositLabel = formatAmount(parts.deposit, market);
+  const balanceLabel = formatAmount(parts.balance, market);
   const ref = `LR-${randomBytes(2).toString("hex").toUpperCase()}`;
   const id = randomBytes(8).toString("hex");
+  const code = ref.slice(3);
+  const receiptNo = `RC-${code}`;
+  const invoiceNo = `FT-${code}`;
   await sql.query(
-    `insert into luv_reservations (id, ref, customer_name, phone, email, lines) values ($1, $2, $3, $4, $5, $6)`,
-    [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines)],
+    `insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines), totalLabel, depositLabel, balanceLabel, pay, market, receiptNo, invoiceNo],
   );
-  return { ok: true as const, ref };
+  const paper: DeskReservation = {
+    id,
+    ref,
+    createdAt: new Date().toISOString(),
+    name: input.name.trim(),
+    phone: input.phone.trim(),
+    email,
+    lines,
+    receivedSent: false,
+    stockSent: false,
+    totalLabel,
+    depositLabel,
+    balanceLabel,
+    pay,
+    market,
+    receiptNo,
+    invoiceNo,
+    emailed: false,
+  };
+  const emailed = await mailCustomer(email, `Luv Sick · ${ref} · recibo e fatura`, reserveLetter(paper));
+  if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);
+  return { ok: true as const, ref, totalLabel, depositLabel, balanceLabel, receiptNo, invoiceNo, emailed };
+}
+
+export async function luvReservePaper(ref: string) {
+  const asked = ref.trim().toUpperCase();
+  if (!/^LR-[A-Z0-9]{4}$/.test(asked)) return { ok: false as const };
+  const sql = await ensureStock();
+  const rows = await sql.query(`select * from luv_reservations where ref = $1`, [asked]);
+  if (!rows.length) return { ok: false as const };
+  return { ok: true as const, paper: mapReservation(rows[0]) };
+}
+
+export async function luvResendReserve(code: string, id: string) {
+  if (!allowed(code)) return { ok: false as const };
+  const sql = await ensureStock();
+  const rows = await sql.query(`select * from luv_reservations where id = $1`, [id]);
+  if (!rows.length) return { ok: false as const };
+  const paper = mapReservation(rows[0]);
+  const emailed = await mailCustomer(paper.email, `Luv Sick · ${paper.ref} · recibo e fatura`, reserveLetter(paper));
+  if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);
+  return { ok: true as const, emailed };
 }
 
 export async function luvSetStockIn(code: string, stockIn: boolean) {
