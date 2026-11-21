@@ -1287,6 +1287,7 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
 
   // Rato por cima: pausa no frame atual; ao sair, retoma do mesmo ponto. Só com rato (o toque não é afetado).
   function hover(on: boolean) {
+    if (on && !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     hovering.current = on;
     const video = reel.current[index];
     if (!video) return;
