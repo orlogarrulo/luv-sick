@@ -684,7 +684,7 @@ export function LuvSickApp() {
             <>
               <section id="inicio">
                 <video
-                  src="/luvsick/brand/hero-meet-12.mp4"
+                  src="/luvsick/brand/hero-meet-13.mp4"
                   poster="/luvsick/brand/hero-meet-12.jpg"
                   className="mx-auto block h-auto max-h-[70vh] w-full bg-[#cbb7a2] object-contain"
                   autoPlay
@@ -695,7 +695,7 @@ export function LuvSickApp() {
                 <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
                   <p className="luv-title text-[11px] tracking-[0.28em] uppercase">{t.newIn}</p>
                   <h1 className="mt-2 text-4xl leading-tight font-medium tracking-tight sm:text-6xl">{t.heroTitle}</h1>
-                  <button type="button" onClick={goStore} className="btn-brown mt-5 rounded-full px-6 py-3">
+                  <button type="button" onClick={goStore} className="btn-brown mx-auto mt-5 block rounded-full px-6 py-3">
                     {t.shop}
                   </button>
                 </div>
@@ -1047,13 +1047,15 @@ function Totals({ lang, market, priced }: { lang: Lang; market: Market; priced: 
   );
 }
 
-const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; la: Record<Lang, string>; lb: Record<Lang, string> }> = {
+const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; c?: string; la: Record<Lang, string>; lb: Record<Lang, string>; lc?: Record<Lang, string> }> = {
   "tracksuit-brown": {
     video: "/luvsick/spin/brown.mp4",
     a: "/luvsick/details/brown-hoodie.jpg",
     b: "/luvsick/details/brown-pants.jpg",
+    c: "/luvsick/details/brown-signature.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
     lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
+    lc: { pt: "Assinatura", en: "Signature", fr: "Signature" },
   },
   "long-sleeve": {
     video: "/luvsick/spin/sleeve.mp4",
@@ -1066,8 +1068,10 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
     video: "/luvsick/spin/black.mp4",
     a: "/luvsick/details/black-hoodie.jpg",
     b: "/luvsick/details/black-pants.jpg",
+    c: "/luvsick/details/black-signature.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
     lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
+    lc: { pt: "Assinatura", en: "Signature", fr: "Signature" },
   },
 };
 
@@ -1347,9 +1351,10 @@ function ProductView({
         <img src={product.images[shot]} alt={product.alt[lang][shot]} className="mx-auto max-h-[70vh] w-full object-contain" />
       </div>
       {SPIN[product.id] ? (
-        <div className="flex justify-center gap-3">
+        <div className="flex justify-center gap-2 sm:gap-3">
           <PhotoZoom src={SPIN[product.id].a} alt={SPIN[product.id].la[lang]} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" />
           <PhotoZoom src={SPIN[product.id].b} alt={SPIN[product.id].lb[lang]} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" />
+          {SPIN[product.id].c ? <PhotoZoom src={SPIN[product.id].c!} alt={SPIN[product.id].lc?.[lang] ?? ""} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" /> : null}
         </div>
       ) : null}
       <div className="flex gap-2">
