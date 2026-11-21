@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { PAY, PRACTICE_EMAIL, PRODUCTS, SIZES, formatAmount, payMethod, quote, splitHalf, type Market } from "@/lib/luvsick";
 import { phoneOkFull } from "@/lib/phone";
@@ -231,8 +231,8 @@ export async function luvPlace(input: {
         invoiceNo,
       ],
     );
-    const codeSent = await openCustomer(profile, input.lang ?? "pt");
-    return { ok: true as const, ref, totalLabel, trial: true as const, receiptNo, invoiceNo, codeSent };
+    const codeRes = await openCustomer(profile, input.lang ?? "pt");
+    return { ok: true as const, ref, totalLabel, trial: true as const, receiptNo, invoiceNo, codeSent: codeRes.sent, codePending: codeRes.pending };
   }
   const placed = await sql.query<{ ref: string }>(
     `with need as (
@@ -276,8 +276,8 @@ export async function luvPlace(input: {
     ],
   );
   if (!placed.length) return { ok: false as const, error: "stock" as const };
-  const codeSent = await openCustomer(profile, input.lang ?? "pt");
-  return { ok: true as const, ref: placed[0].ref, totalLabel, trial: false as const, receiptNo: "", invoiceNo: "", codeSent };
+  const codeRes = await openCustomer(profile, input.lang ?? "pt");
+  return { ok: true as const, ref: placed[0].ref, totalLabel, trial: false as const, receiptNo: "", invoiceNo: "", codeSent: codeRes.sent, codePending: codeRes.pending };
 }
 
 function mapOrder(row: Record<string, unknown>): DeskOrder {
@@ -326,9 +326,11 @@ export async function luvDesk(code: string) {
   const reservations = await sql.query(`select * from luv_reservations order by created_at desc limit 200`);
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
   const proofs = await (await payApi()).deskProofs(sql);
+  const pendingCodes = await deskPendingCodes(sql);
   return {
     ok: true as const,
     proofs,
+    pendingCodes,
     stock,
     orders: orders.map(mapOrder),
     visits,
@@ -441,18 +443,27 @@ function reserveLetter(row: DeskReservation) {
   ].join("\n");
 }
 
+function mailReady() {
+  return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.LUVSICK_FROM_EMAIL?.trim());
+}
+
 async function mailCustomer(to: string, subject: string, body: string) {
   const key = process.env.RESEND_API_KEY?.trim();
   const from = process.env.LUVSICK_FROM_EMAIL?.trim();
-  if (!key || !from) return false;
+  if (!key || !from) {
+    console.warn("[luvsick] email not configured (RESEND_API_KEY / LUVSICK_FROM_EMAIL missing)");
+    return false;
+  }
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify({ from, to: [to], subject, text: body }),
     });
+    if (!res.ok) console.error(`[luvsick] resend failed: ${res.status}`);
     return res.ok;
-  } catch {
+  } catch (err) {
+    console.error("[luvsick] resend error", err instanceof Error ? err.message : "unknown");
     return false;
   }
 }
@@ -487,6 +498,9 @@ async function ensureCustomers(sql: Awaited<ReturnType<typeof getSql>>) {
       expires_at timestamptz not null
     )`,
   );
+  await sql.query(`alter table luv_login_codes add column if not exists pending boolean not null default false`);
+  await sql.query(`alter table luv_login_codes add column if not exists tries int not null default 0`);
+  await sql.query(`alter table luv_login_codes add column if not exists asked_at timestamptz not null default now()`);
   await sql.query(
     `create table if not exists luv_sessions (
       token text primary key,
@@ -502,18 +516,49 @@ function codeText(lang: string, code: string) {
   return `Olá,\n\nO teu código Luv Sick é ${code}.\nÉ válido durante 15 minutos.\n\nLuv Sick`;
 }
 
-async function sendLoginCode(email: string, lang: string) {
+/** Sem serviço de email, o código fica em "Códigos pendentes" na gestão para ser enviado por WhatsApp. */
+const PENDING_MINUTES = 12 * 60;
+
+async function sendLoginCode(email: string, lang: string): Promise<{ sent: boolean; pending: boolean }> {
   const sql = await ensureStock();
   await ensureCustomers(sql);
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  if (!mailReady()) {
+    // Mantém um código pendente ainda válido, para não invalidar o que a equipa já possa ter enviado.
+    const open = await sql.query(`select 1 from luv_login_codes where email = $1 and pending and expires_at > now() and tries < 5`, [email]);
+    if (open.length) return { sent: false, pending: true };
+  }
+  const code = String(randomInt(100000, 1000000));
+  const minutes = mailReady() ? 15 : PENDING_MINUTES;
+  const expires = new Date(Date.now() + minutes * 60 * 1000).toISOString();
   await sql.query(
-    `insert into luv_login_codes (email, code, expires_at) values ($1, $2, $3)
-     on conflict (email) do update set code = excluded.code, expires_at = excluded.expires_at`,
+    `insert into luv_login_codes (email, code, expires_at, pending, tries, asked_at) values ($1, $2, $3, false, 0, now())
+     on conflict (email) do update set code = excluded.code, expires_at = excluded.expires_at, pending = false, tries = 0, asked_at = now()`,
     [email, code, expires],
   );
   const subject = lang === "en" ? "Your Luv Sick code" : lang === "fr" ? "Ton code Luv Sick" : "O teu código Luv Sick";
-  return mailCustomer(email, subject, codeText(lang, code));
+  const sent = mailReady() ? await mailCustomer(email, subject, codeText(lang, code)) : false;
+  if (sent) return { sent: true, pending: false };
+  const later = new Date(Date.now() + PENDING_MINUTES * 60 * 1000).toISOString();
+  await sql.query(`update luv_login_codes set pending = true, expires_at = $2 where email = $1`, [email, later]);
+  return { sent: false, pending: true };
+}
+
+export async function deskPendingCodes(sql: Awaited<ReturnType<typeof getSql>>) {
+  await ensureCustomers(sql);
+  const rows = await sql.query(
+    `select c.email, c.code, c.expires_at, c.asked_at, coalesce(p.name, '') as name, coalesce(p.phone, '') as phone
+       from luv_login_codes c left join luv_customers p on p.email = c.email
+      where c.pending and c.expires_at > now() and c.tries < 5
+      order by c.asked_at desc limit 50`,
+  );
+  return rows.map((row) => ({
+    email: String(row.email),
+    code: String(row.code),
+    name: String(row.name ?? ""),
+    phone: String(row.phone ?? ""),
+    askedAt: stamp(row.asked_at),
+    expiresAt: stamp(row.expires_at),
+  }));
 }
 
 async function saveCustomer(profile: CustomerProfile) {
@@ -583,8 +628,8 @@ export async function luvAskCode(email: string, lang: string) {
   await ensureCustomers(sql);
   const found = await sql.query(`select email from luv_customers where email = $1`, [clean]);
   if (!found.length) return { ok: false as const, error: "missing" as const };
-  const sent = await sendLoginCode(clean, lang);
-  return { ok: true as const, sent };
+  const res = await sendLoginCode(clean, lang);
+  return { ok: true as const, sent: res.sent, pending: res.pending };
 }
 
 export async function luvEnter(email: string, code: string) {
@@ -593,10 +638,14 @@ export async function luvEnter(email: string, code: string) {
   if (!emailOk(clean) || pin.length !== 6) return { ok: false as const, error: "code" as const };
   const sql = await ensureStock();
   await ensureCustomers(sql);
-  const rows = await sql.query<{ code: string; expires_at: Date | string }>(`select code, expires_at from luv_login_codes where email = $1`, [clean]);
+  const rows = await sql.query<{ code: string; expires_at: Date | string; tries: number }>(`select code, expires_at, tries from luv_login_codes where email = $1`, [clean]);
   const row = rows[0];
   const expires = row ? new Date(row.expires_at).getTime() : 0;
-  if (!row || row.code !== pin || Number.isNaN(expires) || expires < Date.now()) return { ok: false as const, error: "code" as const };
+  if (!row || Number(row.tries) >= 5 || Number.isNaN(expires) || expires < Date.now()) return { ok: false as const, error: "code" as const };
+  if (row.code !== pin) {
+    await sql.query(`update luv_login_codes set tries = tries + 1 where email = $1`, [clean]);
+    return { ok: false as const, error: "code" as const };
+  }
   await sql.query(`delete from luv_login_codes where email = $1`, [clean]);
   const token = randomBytes(24).toString("hex");
   await sql.query(`insert into luv_sessions (token, email) values ($1, $2)`, [token, clean]);
@@ -734,8 +783,8 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   };
   const emailed = await mailCustomer(email, `Luv Sick · ${ref} · recibo e fatura`, reserveLetter(paper));
   if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);
-  const codeSent = await openCustomer({ email, name: input.name, phone: input.phone, address: "", city: "", country: "", postal: "" }, input.lang ?? "pt");
-  return { ok: true as const, ref, totalLabel, depositLabel, balanceLabel, receiptNo, invoiceNo, emailed, codeSent };
+  const codeRes = await openCustomer({ email, name: input.name, phone: input.phone, address: "", city: "", country: "", postal: "" }, input.lang ?? "pt");
+  return { ok: true as const, ref, totalLabel, depositLabel, balanceLabel, receiptNo, invoiceNo, emailed, codeSent: codeRes.sent, codePending: codeRes.pending };
 }
 
 export async function luvReservePaper(ref: string) {

@@ -216,6 +216,7 @@ type Dict = {
   account: string;
   codeSent: string;
   codeFail: string;
+  codeWhatsapp: string;
   codeBad: string;
   codeLabel: string;
   myOrders: string;
@@ -320,6 +321,7 @@ export const COPY: Record<Lang, Dict> = {
     account: "Conta",
     codeSent: "Enviámos um código para o teu email.",
     codeFail: "Não foi possível enviar o código. Tenta outra vez em Conta.",
+    codeWhatsapp: "Vamos enviar-te o código por WhatsApp em breve. Depois escreve-o em Conta.",
     codeBad: "Código incorrecto ou expirado.",
     codeLabel: "Código",
     myOrders: "Encomendas",
@@ -431,6 +433,7 @@ export const COPY: Record<Lang, Dict> = {
     account: "Account",
     codeSent: "We sent a code to your email.",
     codeFail: "The code could not be sent. Try again in Account.",
+    codeWhatsapp: "We will send you the code on WhatsApp shortly. Then enter it in Account.",
     codeBad: "Wrong or expired code.",
     codeLabel: "Code",
     myOrders: "Orders",
@@ -542,6 +545,7 @@ export const COPY: Record<Lang, Dict> = {
     account: "Compte",
     codeSent: "Nous avons envoyé un code à ton e-mail.",
     codeFail: "Le code n'a pas pu être envoyé. Réessaie dans Compte.",
+    codeWhatsapp: "Nous t'enverrons le code par WhatsApp très bientôt. Saisis-le ensuite dans Compte.",
     codeBad: "Code incorrect ou expiré.",
     codeLabel: "Code",
     myOrders: "Commandes",

@@ -404,7 +404,7 @@ export function LuvSickApp() {
       emailed: placed.emailed,
     });
     setOrderError("");
-    setCodeNote(placed.codeSent ? t.codeSent : t.codeFail);
+    setCodeNote(placed.codeSent ? t.codeSent : placed.codePending ? t.codeWhatsapp : t.codeFail);
     setKind("reserve");
     setView("sent");
   }
@@ -461,7 +461,7 @@ export function LuvSickApp() {
       emailed: false,
     });
     setOrderError("");
-    setCodeNote(placed.codeSent ? t.codeSent : t.codeFail);
+    setCodeNote(placed.codeSent ? t.codeSent : placed.codePending ? t.codeWhatsapp : t.codeFail);
     setKind("order");
     setView("sent");
   }
@@ -496,7 +496,7 @@ export function LuvSickApp() {
       setCodeNote(t.noOrders);
       return;
     }
-    setCodeNote(res.sent ? t.codeSent : t.codeFail);
+    setCodeNote(res.sent ? t.codeSent : res.pending ? t.codeWhatsapp : t.codeFail);
   }
 
   async function saveAddress(event: FormEvent) {

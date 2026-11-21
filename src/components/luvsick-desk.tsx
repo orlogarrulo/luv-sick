@@ -28,6 +28,18 @@ type Order = {
 type Proof = { id: string; ref: string; createdAt: string; name: string; mime: string; size: number; chunks: number; status: string };
 type Visits = { total: number; countries: { country: string; n: number }[]; cities: { country: string; city: string; n: number }[] };
 type Coupon = { code: string; percent: number; active: boolean };
+type PendingCode = { email: string; code: string; name: string; phone: string; askedAt: string; expiresAt: string };
+
+function codeWhatsapp(item: PendingCode) {
+  const text = `Olá${item.name ? ` ${item.name.split(" ")[0]}` : ""}! O teu código Luv Sick é ${item.code}. Escreve-o em Conta, em luvsickstore.com, com o email ${item.email}.`;
+  const number = item.phone.replace(/\D/g, "");
+  return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+}
+
+function hhmm(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 type Reservation = {
   id: string;
   ref: string;
@@ -176,6 +188,7 @@ export function LuvSickDesk() {
   const [stockIn, setStockIn] = useState(false);
   const [copied, setCopied] = useState("");
   const [proofs, setProofs] = useState<Proof[]>([]);
+  const [pendingCodes, setPendingCodes] = useState<PendingCode[]>([]);
   const told = useRef(new Set<string>());
   const unseen = orders.filter((order) => !order.seen);
 
@@ -194,6 +207,7 @@ export function LuvSickDesk() {
     setCoupons(res.coupons);
     setReservations(res.reservations ?? []);
     setProofs(res.proofs ?? []);
+    setPendingCodes(res.pendingCodes ?? []);
     setStockIn(Boolean(res.stockIn));
     setError("");
     setReady(true);
@@ -350,6 +364,22 @@ export function LuvSickDesk() {
               <div key={order.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span>{order.ref} · {order.name} · {order.phone} · {order.totalLabel}</span>
                 <button type="button" onClick={() => ack(order.id)} className="bg-black px-3 py-2 font-bold text-white">Já vi</button>
+              </div>
+            ))}
+          </section>
+        ) : null}
+        {pendingCodes.length ? (
+          <section className="grid gap-2 bg-white p-3 text-black" data-pending-codes>
+            <p className="font-bold">Códigos pendentes ({pendingCodes.length})</p>
+            <p className="text-xs text-black/60">O envio de emails ainda não está ligado. Envia o código ao cliente por WhatsApp.</p>
+            {pendingCodes.map((item) => (
+              <div key={item.email} className="flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-2 text-sm">
+                <span>
+                  {item.name || item.email} · {item.email}{item.phone ? ` · ${item.phone}` : ""} · <b className="font-mono">{item.code}</b> · pedido {hhmm(item.askedAt)} · válido até {hhmm(item.expiresAt)}
+                </span>
+                {item.phone ? (
+                  <a href={codeWhatsapp(item)} target="_blank" rel="noopener noreferrer" className="bg-black px-3 py-2 font-bold text-white">WhatsApp</a>
+                ) : null}
               </div>
             ))}
           </section>
