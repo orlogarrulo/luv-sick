@@ -10,20 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ClientesRouteImport } from './routes/clientes'
 import { Route as GestaoRouteImport } from './routes/gestao'
 import { Route as ApiLuvsickRouteImport } from './routes/api/luvsick'
-import { Route as ApiMobileRouteImport } from './routes/api/mobile'
 import { Route as ReciboRefRouteImport } from './routes/recibo.$ref'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ClientesRoute = ClientesRouteImport.update({
-  id: '/clientes',
-  path: '/clientes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GestaoRoute = GestaoRouteImport.update({
@@ -36,11 +29,6 @@ const ApiLuvsickRoute = ApiLuvsickRouteImport.update({
   path: '/api/luvsick',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiMobileRoute = ApiMobileRouteImport.update({
-  id: '/api/mobile',
-  path: '/api/mobile',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ReciboRefRoute = ReciboRefRouteImport.update({
   id: '/recibo/$ref',
   path: '/recibo/$ref',
@@ -49,62 +37,35 @@ const ReciboRefRoute = ReciboRefRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/clientes': typeof ClientesRoute
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
-  '/api/mobile': typeof ApiMobileRoute
   '/recibo/$ref': typeof ReciboRefRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/clientes': typeof ClientesRoute
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
-  '/api/mobile': typeof ApiMobileRoute
   '/recibo/$ref': typeof ReciboRefRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/clientes': typeof ClientesRoute
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
-  '/api/mobile': typeof ApiMobileRoute
   '/recibo/$ref': typeof ReciboRefRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/clientes'
-    | '/gestao'
-    | '/api/luvsick'
-    | '/api/mobile'
-    | '/recibo/$ref'
+  fullPaths: '/' | '/gestao' | '/api/luvsick' | '/recibo/$ref'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/clientes'
-    | '/gestao'
-    | '/api/luvsick'
-    | '/api/mobile'
-    | '/recibo/$ref'
-  id:
-    | '__root__'
-    | '/'
-    | '/clientes'
-    | '/gestao'
-    | '/api/luvsick'
-    | '/api/mobile'
-    | '/recibo/$ref'
+  to: '/' | '/gestao' | '/api/luvsick' | '/recibo/$ref'
+  id: '__root__' | '/' | '/gestao' | '/api/luvsick' | '/recibo/$ref'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ClientesRoute: typeof ClientesRoute
   GestaoRoute: typeof GestaoRoute
   ApiLuvsickRoute: typeof ApiLuvsickRoute
-  ApiMobileRoute: typeof ApiMobileRoute
   ReciboRefRoute: typeof ReciboRefRoute
 }
 
@@ -115,13 +76,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/clientes': {
-      id: '/clientes'
-      path: '/clientes'
-      fullPath: '/clientes'
-      preLoaderRoute: typeof ClientesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gestao': {
@@ -138,13 +92,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLuvsickRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/mobile': {
-      id: '/api/mobile'
-      path: '/api/mobile'
-      fullPath: '/api/mobile'
-      preLoaderRoute: typeof ApiMobileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/recibo/$ref': {
       id: '/recibo/$ref'
       path: '/recibo/$ref'
@@ -157,10 +104,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ClientesRoute: ClientesRoute,
   GestaoRoute: GestaoRoute,
   ApiLuvsickRoute: ApiLuvsickRoute,
-  ApiMobileRoute: ApiMobileRoute,
   ReciboRefRoute: ReciboRefRoute,
 }
 export const routeTree = rootRouteImport
