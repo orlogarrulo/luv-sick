@@ -1352,9 +1352,14 @@ function ProductView({
       </div>
       {SPIN[product.id] ? (
         <div className="flex justify-center gap-2 sm:gap-3">
-          <PhotoZoom src={SPIN[product.id].a} alt={SPIN[product.id].la[lang]} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" />
-          <PhotoZoom src={SPIN[product.id].b} alt={SPIN[product.id].lb[lang]} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" />
-          {SPIN[product.id].c ? <PhotoZoom src={SPIN[product.id].c!} alt={SPIN[product.id].lc?.[lang] ?? ""} className="h-36 w-28 overflow-hidden rounded-2xl" imgClassName="h-36 w-28 object-cover" /> : null}
+          {[
+            { src: SPIN[product.id].a, label: SPIN[product.id].la[lang] },
+            { src: SPIN[product.id].b, label: SPIN[product.id].lb[lang] },
+            ...(SPIN[product.id].c ? [{ src: SPIN[product.id].c!, label: SPIN[product.id].lc?.[lang] ?? "" }] : []),
+          ].map((item, _index, all) => {
+            const width = all.length > 2 ? "w-[6.5rem] sm:w-28" : "w-28";
+            return <PhotoZoom key={item.src} src={item.src} alt={item.label} className={`h-36 ${width} overflow-hidden rounded-2xl`} imgClassName={`h-36 ${width} object-cover`} />;
+          })}
         </div>
       ) : null}
       <div className="flex gap-2">
