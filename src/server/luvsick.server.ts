@@ -3,6 +3,7 @@ import { getSql } from "@/lib/db";
 import {
   ALL_PRODUCTS,
   PAY,
+  RATE,
   PRACTICE_EMAIL,
   PRODUCTS,
   kzAmount,
@@ -111,6 +112,9 @@ async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) 
   await sql.query(`alter table luv_orders add column if not exists email text not null default ''`);
   await sql.query(`alter table luv_orders add column if not exists trial boolean not null default false`);
   await sql.query(`alter table luv_orders add column if not exists invoice_no text not null default ''`);
+  // Câmbio (Kz por 1 €) em vigor quando a encomenda/reserva foi feita (null = anteriores a 21/11/2026).
+  await sql.query(`alter table luv_orders add column if not exists kz_rate numeric(12,2)`);
+  await sql.query(`alter table luv_reservations add column if not exists kz_rate numeric(12,2)`);
 }
 
 export async function ensureStock() {
@@ -131,12 +135,17 @@ export async function ensureStock() {
   return sql;
 }
 
+/** Grava o câmbio em vigor no momento da compra (encomendas/reservas mantêm sempre o preço e o câmbio da altura). */
+async function stampRate(sql: Awaited<ReturnType<typeof getSql>>, table: "luv_orders" | "luv_reservations", id: string, rate: number) {
+  await sql.query(`update ${table} set kz_rate = $2 where id = $1 and kz_rate is null`, [id, rate]);
+}
+
 /** Linhas limpas (só campos conhecidos) com o preço unitário e o nome no momento da compra, calculados no servidor. */
 function priceLines(lines: Need[], market: Market) {
   return lines.map((line) => {
     const product = productById(line.productId);
     const unit = product ? (market === "AO" ? kzAmount(product) : product.priceEur) : 0;
-    return { productId: line.productId, size: line.size, qty: Math.floor(Number(line.qty)), unit, name: product?.name.pt ?? line.productId };
+    return { productId: line.productId, size: line.size, qty: Math.floor(Number(line.qty)), unit, eur: product?.priceEur ?? 0, kzRate: RATE.kz, name: product?.name.pt ?? line.productId };
   });
 }
 
@@ -235,6 +244,7 @@ export async function luvPlace(input: {
     if (!found.length) return { ok: false as const, error: "coupon" as const };
     percent = Number(found[0].percent);
   }
+  const saleRate = RATE.kz;
   const priced = quote(lines, market, percent);
   lines = priceLines(lines, market);
   const totalLabel = formatAmount(priced.total, market);
@@ -278,6 +288,7 @@ export async function luvPlace(input: {
       ],
     );
     const codeRes = await openCustomer(profile, input.lang ?? "pt");
+    await stampRate(sql, "luv_orders", id, saleRate);
     return { ok: true as const, ref, totalLabel, trial: true as const, receiptNo, invoiceNo, codeSent: codeRes.sent, codePending: codeRes.pending };
   }
   const placed = await sql.query<{ ref: string }>(
@@ -322,6 +333,7 @@ export async function luvPlace(input: {
     ],
   );
   if (!placed.length) return { ok: false as const, error: "stock" as const };
+  await stampRate(sql, "luv_orders", id, saleRate);
   const codeRes = await openCustomer(profile, input.lang ?? "pt");
   return { ok: true as const, ref: placed[0].ref, totalLabel, trial: false as const, receiptNo: "", invoiceNo: "", codeSent: codeRes.sent, codePending: codeRes.pending };
 }
@@ -945,6 +957,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   const sql = await ensureStock();
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
   if (flag[0]?.value === "1") return { ok: false as const, error: "closed" as const };
+  const saleRate = RATE.kz;
   const priced = quote(lines, market);
   lines = priceLines(lines, market);
   const parts = splitHalf(priced.total);
@@ -1009,6 +1022,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
     );
     if (!placed.length) return { ok: false as const, error: "stock" as const };
   }
+  await stampRate(sql, "luv_reservations", id, saleRate);
   const paper: DeskReservation = {
     id,
     ref,

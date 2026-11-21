@@ -68,11 +68,11 @@ const PIECES: Product[] = [
     ),
     alt: alts("hoodie preto", "Black hoodie", "Hoodie noir"),
     details: {
-      front: [DT(`${DD}hoodie-preto-coracao.jpg`, "Coração no peito", "Chest heart", "Cœur poitrine"), DT(`${DD}hoodie-preto-punho.jpg`, "Punho", "Cuff", "Poignet")],
+      front: [DT(`${DD}hoodie-preto-coracao-v2.jpg`, "Coração no peito", "Chest heart", "Cœur poitrine"), DT(`${DD}hoodie-preto-punho-v2.jpg`, "Punho", "Cuff", "Poignet")],
       back: [
-        DT(`${DD}hoodie-preto-capuz.jpg`, "Capuz", "Hood", "Capuche"),
-        DT(`${DD}hoodie-preto-assinatura.jpg`, "Assinatura nas costas", "Back signature", "Signature au dos"),
-        DT(`${DD}hoodie-preto-punho-costas.jpg`, "Punho", "Cuff", "Poignet"),
+        DT(`${DD}hoodie-preto-capuz-v2.jpg`, "Capuz", "Hood", "Capuche"),
+        DT(`${DD}hoodie-preto-assinatura-v2.jpg`, "Assinatura nas costas", "Back signature", "Signature au dos"),
+        DT(`${DD}hoodie-preto-punho-costas-v2.jpg`, "Punho", "Cuff", "Poignet"),
       ],
     },
   },
@@ -94,11 +94,11 @@ const PIECES: Product[] = [
     ),
     alt: alts("hoodie castanho", "Brown hoodie", "Hoodie marron"),
     details: {
-      front: [DT(`${DD}hoodie-castanho-coracao.jpg`, "Coração no peito", "Chest heart", "Cœur poitrine"), DT(`${DD}hoodie-castanho-punho.jpg`, "Punho", "Cuff", "Poignet")],
+      front: [DT(`${DD}hoodie-castanho-coracao-v2.jpg`, "Coração no peito", "Chest heart", "Cœur poitrine"), DT(`${DD}hoodie-castanho-punho-v2.jpg`, "Punho", "Cuff", "Poignet")],
       back: [
-        DT(`${DD}hoodie-castanho-capuz.jpg`, "Capuz", "Hood", "Capuche"),
-        DT(`${DD}hoodie-castanho-assinatura.jpg`, "Assinatura nas costas", "Back signature", "Signature au dos"),
-        DT(`${DD}hoodie-castanho-punho-costas.jpg`, "Punho", "Cuff", "Poignet"),
+        DT(`${DD}hoodie-castanho-capuz-v2.jpg`, "Capuz", "Hood", "Capuche"),
+        DT(`${DD}hoodie-castanho-assinatura-v2.jpg`, "Assinatura nas costas", "Back signature", "Signature au dos"),
+        DT(`${DD}hoodie-castanho-punho-costas-v2.jpg`, "Punho", "Cuff", "Poignet"),
       ],
     },
   },
@@ -122,9 +122,9 @@ const PIECES: Product[] = [
     details: {
       front: [
         DT(`${DD}black-pants-hd.jpg`, "Coração na coxa", "Thigh heart", "Cœur sur la cuisse"),
-        DT(`${DD}calcas-pretas-assinatura.jpg`, "Assinatura na bainha", "Hem signature", "Signature sur l'ourlet"),
+        DT(`${DD}calcas-pretas-assinatura-v2.jpg`, "Assinatura na bainha", "Hem signature", "Signature sur l'ourlet"),
       ],
-      back: [DT(`${DD}calcas-pretas-bainha-costas.jpg`, "Costas", "Back", "Dos")],
+      back: [DT(`${DD}calcas-pretas-bainha-costas-v2.jpg`, "Costas", "Back", "Dos")],
     },
   },
   {
@@ -149,7 +149,7 @@ const PIECES: Product[] = [
         DT(`${DD}brown-pants-hd.jpg`, "Coração na coxa", "Thigh heart", "Cœur sur la cuisse"),
         DT(`${DD}brown-hem-signature-hd.jpg`, "Assinatura na bainha", "Hem signature", "Signature sur l'ourlet"),
       ],
-      back: [DT(`${DD}calcas-castanhas-bainha-costas.jpg`, "Costas", "Back", "Dos")],
+      back: [DT(`${DD}calcas-castanhas-bainha-costas-v2.jpg`, "Costas", "Back", "Dos")],
     },
   },
   {
@@ -171,12 +171,12 @@ const PIECES: Product[] = [
     alt: alts("calções castanhos", "Brown shorts", "Short marron"),
     details: {
       front: [
-        DT(`${DD}calcoes-castanhos-coracao.jpg`, "Coração na perna", "Leg heart", "Cœur sur la jambe"),
-        DT(`${DD}calcoes-castanhos-cintura.jpg`, "Cintura e cordões", "Waist and drawstring", "Taille et cordons"),
+        DT(`${DD}calcoes-castanhos-coracao-v2.jpg`, "Coração na perna", "Leg heart", "Cœur sur la jambe"),
+        DT(`${DD}calcoes-castanhos-cintura-v2.jpg`, "Cintura e cordões", "Waist and drawstring", "Taille et cordons"),
       ],
       back: [
-        DT(`${DD}calcoes-castanhos-assinatura.jpg`, "Assinatura", "Signature", "Signature"),
-        DT(`${DD}calcoes-castanhos-bolsos.jpg`, "Bolsos traseiros", "Back pockets", "Poches arrière"),
+        DT(`${DD}calcoes-castanhos-assinatura-v2.jpg`, "Assinatura", "Signature", "Signature"),
+        DT(`${DD}calcoes-castanhos-bolsos-v2.jpg`, "Bolsos traseiros", "Back pockets", "Poches arrière"),
       ],
     },
   },
