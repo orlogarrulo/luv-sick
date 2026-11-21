@@ -264,6 +264,27 @@ export function LuvSickDesk() {
     document.title = unseen.length ? `(${unseen.length}) Gestão` : "Gestão";
   }, [ready, unseen.length]);
 
+  /**
+   * Sair: a gestão não guarda sessão no servidor (o código vai em cada pedido e não fica nenhum cookie/token).
+   * Apaga o código guardado no separador, limpa os dados da memória e recarrega /gestao por cima do
+   * histórico, para que recarregar ou voltar atrás mostre só o ecrã do código.
+   */
+  function logout() {
+    sessionStorage.removeItem(KEY);
+    setReady(false);
+    setCode("");
+    setStock([]);
+    setOrders([]);
+    setReservations([]);
+    setCancelledList([]);
+    setProofs([]);
+    setPendingCodes([]);
+    setCoupons([]);
+    setVisits({ total: 0, countries: [], cities: [] });
+    document.title = "Gestão";
+    window.location.replace("/gestao");
+  }
+
   async function ack(id: string) {
     const res = await luvAckOrder({ data: { code, id } });
     if (!res.ok) return;
@@ -373,6 +394,7 @@ export function LuvSickDesk() {
           <div className="flex items-center gap-3">
             <button type="button" onClick={allowNotices} className="text-sm underline">Ligar avisos</button>
             <Link to="/" className="text-sm underline">Loja</Link>
+            <button type="button" onClick={logout} className="text-sm underline" data-desk-logout>Sair</button>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
