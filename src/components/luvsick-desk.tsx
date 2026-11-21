@@ -189,6 +189,7 @@ export function LuvSickDesk() {
   const [copied, setCopied] = useState("");
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [pendingCodes, setPendingCodes] = useState<PendingCode[]>([]);
+  const [mailOn, setMailOn] = useState(false);
   const told = useRef(new Set<string>());
   const unseen = orders.filter((order) => !order.seen);
 
@@ -208,6 +209,7 @@ export function LuvSickDesk() {
     setReservations(res.reservations ?? []);
     setProofs(res.proofs ?? []);
     setPendingCodes(res.pendingCodes ?? []);
+    setMailOn(Boolean(res.mailReady));
     setStockIn(Boolean(res.stockIn));
     setError("");
     setReady(true);
@@ -371,7 +373,7 @@ export function LuvSickDesk() {
         {pendingCodes.length ? (
           <section className="grid gap-2 bg-white p-3 text-black" data-pending-codes>
             <p className="font-bold">Códigos pendentes ({pendingCodes.length})</p>
-            <p className="text-xs text-black/60">O envio de emails ainda não está ligado. Envia o código ao cliente por WhatsApp.</p>
+            <p className="text-xs text-black/60">{mailOn ? "O envio do email falhou. Envia o código ao cliente por WhatsApp." : "O envio de emails ainda não está ligado. Envia o código ao cliente por WhatsApp."}</p>
             {pendingCodes.map((item) => (
               <div key={item.email} className="flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-2 text-sm">
                 <span>

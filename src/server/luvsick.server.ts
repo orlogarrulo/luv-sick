@@ -331,6 +331,7 @@ export async function luvDesk(code: string) {
     ok: true as const,
     proofs,
     pendingCodes,
+    mailReady: mailReady(),
     stock,
     orders: orders.map(mapOrder),
     visits,
