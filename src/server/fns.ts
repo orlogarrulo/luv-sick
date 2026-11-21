@@ -130,3 +130,11 @@ export const luvProofPart = createServerFn({ method: "POST" })
 export const luvRejectProof = createServerFn({ method: "POST" })
   .validator((data: { code: string; ref: string }) => data)
   .handler(async ({ data }) => (await payApi()).luvRejectProof(data.code, data.ref));
+
+export const luvStripeCheckout = createServerFn({ method: "POST" })
+  .validator((data: { ref: string }) => data)
+  .handler(async ({ data }) => (await import("./stripe.server")).createCheckout(data.ref));
+
+export const luvStripeSync = createServerFn({ method: "POST" })
+  .validator((data: { ref: string }) => data)
+  .handler(async ({ data }) => (await import("./stripe.server")).syncCheckout(data.ref));

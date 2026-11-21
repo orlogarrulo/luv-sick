@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PayDetails, ProofUpload, proofWhatsApp } from "@/components/luvsick-pay";
-import { productById, type Market } from "@/lib/luvsick";
-import { luvPayInfo, luvReceipt, luvReservePaper } from "@/server/fns";
+import { payMethod, productById, type Market } from "@/lib/luvsick";
+import { luvPayInfo, luvReceipt, luvReservePaper, luvStripeSync } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
 type Order = {
@@ -51,6 +51,7 @@ type PayInfo = {
   paid: boolean;
   proofStatus: string;
   proofs: number;
+  stripe?: boolean;
 };
 
 const STATUS: Record<string, string> = {
@@ -63,6 +64,8 @@ const STATUS: Record<string, string> = {
 /** Pagamento por confirmar: dados para pagar, envio do comprovativo e WhatsApp. */
 function PaymentBox({ info, onChange }: { info: PayInfo; onChange: () => void }) {
   const status = info.paid ? "Paga" : STATUS[info.proofStatus] ?? STATUS[""];
+  const card = payMethod(info.market, info.pay)?.kind === "card" && Boolean(info.stripe) && info.market === "PT";
+  const [back] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("cancelado") ? "Pagamento cancelado. Podes tentar outra vez." : ""));
   return (
     <section className="mx-auto grid max-w-sm gap-4 bg-white p-6 text-sm print:hidden" data-payment-box>
       <img src="/luvsick/brand/logo-black.svg" alt="Luv Sick" className="mx-auto h-14 w-14 object-contain" />
@@ -73,9 +76,10 @@ function PaymentBox({ info, onChange }: { info: PayInfo; onChange: () => void })
       <p className="text-center font-bold" data-proof-status>
         Estado: {status}
       </p>
-      <PayDetails market={info.market} pay={info.pay} amountLabel={info.amountLabel} refCode={info.ref} lang="pt" />
+      {back ? <p className="text-center text-sm">{back}</p> : null}
+      <PayDetails market={info.market} pay={info.pay} amountLabel={info.amountLabel} refCode={info.ref} lang="pt" stripe={Boolean(info.stripe)} />
       {info.kind === "reserve" ? <p className="text-xs text-[#1a1714]/70">Valor do sinal de 50%. O restante paga-se no dia do envio.</p> : null}
-      <ProofUpload refCode={info.ref} onDone={onChange} />
+      {card ? null : <ProofUpload refCode={info.ref} onDone={onChange} />}
       <a href={proofWhatsApp(info.market, info.ref, info.amountLabel)} target="_blank" rel="noreferrer" className="rounded-full border border-[#1a1714] px-5 py-3 text-center font-bold">
         Enviar pelo WhatsApp
       </a>
@@ -112,6 +116,7 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [paper, setPaper] = useState<Paper | null>(null);
   const [info, setInfo] = useState<PayInfo | null>(null);
+  const [reload, setReload] = useState(0);
 
   const loadPay = useCallback(() => {
     luvPayInfo({ data: { ref: refCode } }).then((res) => {
@@ -120,8 +125,19 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
   }, [refCode]);
 
   useEffect(() => {
-    loadPay();
-  }, [loadPay]);
+    const back = new URLSearchParams(window.location.search).get("pago");
+    if (!back) {
+      loadPay();
+      return;
+    }
+    // Regresso do Stripe: confirma a sessão e recarrega o estado e o documento.
+    luvStripeSync({ data: { ref: refCode } })
+      .catch(() => null)
+      .finally(() => {
+        loadPay();
+        setReload((n) => n + 1);
+      });
+  }, [loadPay, refCode]);
 
   useEffect(() => {
     if (reserve) {
@@ -147,7 +163,7 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
       setOrder(res.order);
       setState("open");
     });
-  }, [refCode, reserve]);
+  }, [refCode, reserve, reload]);
 
   if (state === "wait") return <main className="grid min-h-dvh place-items-center bg-[#f4f1ec] text-[#1a1714]">A carregar…</main>;
   if (state === "missing") return <main className="grid min-h-dvh place-items-center bg-[#f4f1ec] px-4 text-center text-[#1a1714]">Este documento não existe.</main>;

@@ -3,6 +3,7 @@ import {
   COPY,
   LANGS,
   PAY,
+  payMethod,
   PRACTICE_EMAIL,
   PRODUCTS,
   SHOP_EMAIL,
@@ -21,7 +22,7 @@ import {
 } from "@/lib/luvsick";
 import { DIALS, dialOf, fullPhone } from "@/lib/dials";
 import { phoneOk } from "@/lib/phone";
-import { PAY_COPY, PayDetails } from "@/components/luvsick-pay";
+import { PAY_COPY, PayDetails, openStripe } from "@/components/luvsick-pay";
 import { luvAccount, luvAskCode, luvCheckCoupon, luvEnter, luvMode, luvPlace, luvReserve, luvSaveAddress, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
@@ -407,6 +408,7 @@ export function LuvSickApp() {
     setCodeNote(placed.codeSent ? t.codeSent : placed.codePending ? t.codeWhatsapp : t.codeFail);
     setKind("reserve");
     setView("sent");
+    if (payMethod(market, pay)?.kind === "card") void openStripe(placed.ref).catch(() => false);
   }
 
   async function submitOrder(event: FormEvent) {
@@ -464,6 +466,7 @@ export function LuvSickApp() {
     setCodeNote(placed.codeSent ? t.codeSent : placed.codePending ? t.codeWhatsapp : t.codeFail);
     setKind("order");
     setView("sent");
+    if (!placed.trial && payMethod(market, pay)?.kind === "card") void openStripe(placed.ref).catch(() => false);
   }
 
   function remember(token: string, next: Account) {
@@ -770,7 +773,7 @@ export function LuvSickApp() {
                 })}
                 {payError ? <span className="text-sm text-[#1a1714]/70">{payError}</span> : null}
               </fieldset>
-              {pay ? <PayDetails market={market} pay={pay} amountLabel={formatAmount(splitHalf(priced.total).deposit, market)} lang={lang} /> : null}
+              {pay ? <PayDetails market={market} pay={pay} amountLabel={formatAmount(splitHalf(priced.total).deposit, market)} lang={lang} stripe={stripe} /> : null}
               <button className="btn-brown w-fit rounded-full px-5 py-3">{t.halfNow}</button>
             </form>
           ) : null}
@@ -851,7 +854,7 @@ export function LuvSickApp() {
                 })}
                 {payError ? <span className="text-sm text-[#1a1714]/70">{payError}</span> : null}
               </fieldset>
-              {pay ? <PayDetails market={market} pay={pay} amountLabel={totalLabel} lang={lang} /> : null}
+              {pay ? <PayDetails market={market} pay={pay} amountLabel={totalLabel} lang={lang} stripe={stripe} /> : null}
               <button className="btn-brown rounded-full px-4 py-3">{t.send}</button>
             </form>
           ) : null}
@@ -866,7 +869,7 @@ export function LuvSickApp() {
               <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {paper.deposit}</p>
               <p className="font-bold">{t.invoiceWord} {paper.invoiceNo} · {paper.balance}</p>
               <p className="text-sm text-[#1a1714]/70">{paper.emailed ? t.mailed : t.halfLater}</p>
-              <PayDetails market={market} pay={pay} amountLabel={paper.deposit} refCode={refCode} lang={lang} />
+              <PayDetails market={market} pay={pay} amountLabel={paper.deposit} refCode={refCode} lang={lang} stripe={stripe} />
               <a href={`/recibo/${refCode}`} className="text-sm underline">{PAY_COPY[lang].proofLink} · {t.receiptWord} · {t.invoiceWord}</a>
               <form onSubmit={submitCode} className="grid gap-2">
                 <p className="text-sm">{codeNote}</p>
@@ -916,7 +919,7 @@ export function LuvSickApp() {
               {trial ? (
                 <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {t.invoiceWord} {paper.invoiceNo}</p>
               ) : null}
-              {trial ? null : <PayDetails market={market} pay={pay} amountLabel={totalLabel} refCode={refCode} lang={lang} />}
+              {trial ? null : <PayDetails market={market} pay={pay} amountLabel={totalLabel} refCode={refCode} lang={lang} stripe={stripe} />}
               <a href={`/recibo/${refCode}`} className="text-sm underline">{trial ? `${t.receiptWord} · ${t.invoiceWord}` : `${PAY_COPY[lang].proofLink} · Talão de compra`}</a>
               <form onSubmit={submitCode} className="grid gap-2">
                 <p className="text-sm">{codeNote}</p>
