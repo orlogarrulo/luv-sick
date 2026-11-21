@@ -35,7 +35,7 @@ export const BASE_PRODUCTS: Product[] = [
   {
     id: "long-sleeve",
     priceEur: 70,
-    priceKz: 100000,
+    priceKz: null,
     images: ["/luvsick/products/long-sleeve-1.jpg", "/luvsick/products/long-sleeve-2.jpg"],
     name: { pt: "Manga comprida", en: "Long sleeve", fr: "Manches longues" },
     material: {
@@ -57,7 +57,7 @@ export const BASE_PRODUCTS: Product[] = [
   {
     id: "tracksuit-black",
     priceEur: 120,
-    priceKz: 160000,
+    priceKz: null,
     images: ["/luvsick/products/tracksuit-black-1.jpg", "/luvsick/products/tracksuit-black-back.jpg"],
     name: { pt: "Fato de treino preto", en: "Black tracksuit", fr: "Survêtement noir" },
     material: {
@@ -79,7 +79,7 @@ export const BASE_PRODUCTS: Product[] = [
   {
     id: "tracksuit-brown",
     priceEur: 120,
-    priceKz: 160000,
+    priceKz: null,
     images: ["/luvsick/products/tracksuit-brown-1.jpg", "/luvsick/products/tracksuit-brown-back.jpg"],
     name: { pt: "Fato de treino castanho", en: "Brown tracksuit", fr: "Survêtement marron" },
     material: {

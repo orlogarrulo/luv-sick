@@ -7,6 +7,9 @@ import { LOGO_PNG_BASE64 } from "./logo-png";
 import { APPLE_PAY_WIRED, stripeKeys } from "./stripe.server";
 
 type Sql = Awaited<ReturnType<typeof getSql>>;
+/** Preços fixos em Kz que os conjuntos tinham até 21/11/2026 (passaram a seguir o câmbio). Só para faturas de linhas antigas sem preço gravado. */
+const LEGACY_KZ: Record<string, number> = { "long-sleeve": 100000, "tracksuit-black": 160000, "tracksuit-brown": 160000 };
+
 type Line = { productId: string; size: string; qty: number; unit?: number; name?: string };
 
 export const PROOF_MAX_BYTES = 5 * 1024 * 1024;
@@ -509,7 +512,8 @@ export async function invoicePdf(ref: string): Promise<{ file: Uint8Array; name:
     const qty = Math.max(0, Math.floor(Number(item.qty)));
     if ((!product && !item.unit) || !qty) continue;
     // Preço gravado no momento da compra; para encomendas antigas, o preço atual do catálogo.
-    const unit = Number(item.unit) > 0 ? Number(item.unit) : product ? (data.market === "AO" ? kzAmount(product) : product.priceEur) : 0;
+    const legacyKz = data.market === "AO" ? LEGACY_KZ[item.productId] : undefined;
+    const unit = Number(item.unit) > 0 ? Number(item.unit) : legacyKz ?? (product ? (data.market === "AO" ? kzAmount(product) : product.priceEur) : 0);
     gross += unit * qty;
     right(String(qty), L + 18, y, 9);
     text(`${product?.name.pt ?? item.name ?? item.productId} · tamanho ${item.size}`, L + 36, y, 9);
