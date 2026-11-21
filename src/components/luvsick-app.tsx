@@ -1053,22 +1053,22 @@ function Totals({ lang, market, priced }: { lang: Lang; market: Market; priced: 
 const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; la: Record<Lang, string>; lb: Record<Lang, string> }> = {
   "tracksuit-brown": {
     video: "/luvsick/spin/brown-4.mp4",
-    a: "/luvsick/details/brown-hoodie.jpg",
-    b: "/luvsick/details/brown-pants.jpg",
+    a: "/luvsick/details/brown-hoodie-hd.jpg",
+    b: "/luvsick/details/brown-pants-hd.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
     lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
   },
   "long-sleeve": {
     video: "/luvsick/spin/sleeve.mp4",
-    a: "/luvsick/details/sleeve-front.jpg",
-    b: "/luvsick/details/sleeve-arm.jpg",
+    a: "/luvsick/details/sleeve-front-hd.jpg",
+    b: "/luvsick/details/sleeve-arm-hd.jpg",
     la: { pt: "Frente", en: "Front", fr: "Face" },
     lb: { pt: "Manga", en: "Sleeve", fr: "Manche" },
   },
   "tracksuit-black": {
     video: "/luvsick/spin/black-4.mp4",
-    a: "/luvsick/details/black-hoodie.jpg",
-    b: "/luvsick/details/black-pants.jpg",
+    a: "/luvsick/details/black-hoodie-hd.jpg",
+    b: "/luvsick/details/black-pants-hd.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
     lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
   },
@@ -1078,36 +1078,36 @@ type Detail = { src: string; label: Record<Lang, string> };
 const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
   "long-sleeve": {
     front: [
-      { src: "/luvsick/details/sleeve-front.jpg", label: { pt: "Frente", en: "Front", fr: "Face" } },
-      { src: "/luvsick/details/sleeve-arm.jpg", label: { pt: "Manga", en: "Sleeve", fr: "Manche" } },
+      { src: "/luvsick/details/sleeve-front-hd.jpg", label: { pt: "Frente", en: "Front", fr: "Face" } },
+      { src: "/luvsick/details/sleeve-arm-hd.jpg", label: { pt: "Manga", en: "Sleeve", fr: "Manche" } },
     ],
     back: [
-      { src: "/luvsick/details/sleeve-back-script.jpg", label: { pt: "Lettering na manga", en: "Sleeve lettering", fr: "Lettrage sur la manche" } },
-      { src: "/luvsick/details/sleeve-back.jpg", label: { pt: "Costas", en: "Back", fr: "Dos" } },
+      { src: "/luvsick/details/sleeve-back-script-hd.jpg", label: { pt: "Lettering na manga", en: "Sleeve lettering", fr: "Lettrage sur la manche" } },
+      { src: "/luvsick/details/sleeve-back-hd.jpg", label: { pt: "Costas", en: "Back", fr: "Dos" } },
     ],
   },
   "tracksuit-black": {
     front: [
-      { src: "/luvsick/details/black-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
-      { src: "/luvsick/details/black-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/black-hem-signature.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
-      { src: "/luvsick/details/black-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
+      { src: "/luvsick/details/black-hoodie-hd.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
+      { src: "/luvsick/details/black-cuff-hd.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
+      { src: "/luvsick/details/black-hem-signature-hd.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
+      { src: "/luvsick/details/black-pants-hd.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
     ],
     back: [
-      { src: "/luvsick/details/black-hood.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
-      { src: "/luvsick/details/black-back-hem-2.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
+      { src: "/luvsick/details/black-hood-hd.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
+      { src: "/luvsick/details/black-back-hem-2-hd.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
     ],
   },
   "tracksuit-brown": {
     front: [
-      { src: "/luvsick/details/brown-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
-      { src: "/luvsick/details/brown-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/brown-hem-signature.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
-      { src: "/luvsick/details/brown-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
+      { src: "/luvsick/details/brown-hoodie-hd.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
+      { src: "/luvsick/details/brown-cuff-hd.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
+      { src: "/luvsick/details/brown-hem-signature-hd.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
+      { src: "/luvsick/details/brown-pants-hd.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
     ],
     back: [
-      { src: "/luvsick/details/brown-hood.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
-      { src: "/luvsick/details/brown-back-hem-2.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
+      { src: "/luvsick/details/brown-hood-hd.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
+      { src: "/luvsick/details/brown-back-hem-2-hd.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
     ],
   },
 };
@@ -1270,18 +1270,29 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
   const line = product?.material[lang].split(".")[0] ?? "";
   const [turn, setTurn] = useState(0);
   const reel = useRef<(HTMLVideoElement | null)[]>([]);
+  const hovering = useRef(false);
 
   useEffect(() => {
     reel.current.forEach((video, slot) => {
       if (!video) return;
       if (slot === index) {
         video.currentTime = 0;
-        void video.play().catch(() => {});
+        if (!hovering.current) void video.play().catch(() => {});
+        else video.pause();
       } else {
         video.pause();
       }
     });
   }, [index]);
+
+  // Rato por cima: pausa no frame atual; ao sair, retoma do mesmo ponto. Só com rato (o toque não é afetado).
+  function hover(on: boolean) {
+    hovering.current = on;
+    const video = reel.current[index];
+    if (!video) return;
+    if (on) video.pause();
+    else void video.play().catch(() => {});
+  }
 
   useEffect(() => {
     setTurn(0);
@@ -1311,7 +1322,15 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
         }
       }}
     >
-      <div className="relative mx-auto flex h-[70vh] max-h-[760px] w-full max-w-3xl items-center justify-center bg-white">
+      <div
+        className="relative mx-auto flex h-[70vh] max-h-[760px] w-full max-w-3xl items-center justify-center bg-white"
+        onPointerEnter={(event) => {
+          if (event.pointerType === "mouse") hover(true);
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === "mouse") hover(false);
+        }}
+      >
         {/* Os três vídeos ficam carregados e sobrepostos; a troca é um cruzamento suave, sem remontar o elemento (evita o frame vazio/flash). */}
         {ids.map((item, slot) =>
           SPIN[item].video ? (
