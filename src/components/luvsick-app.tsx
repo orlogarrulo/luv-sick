@@ -684,7 +684,7 @@ export function LuvSickApp() {
             <>
               <section id="inicio">
                 <video
-                  src="/luvsick/brand/hero-meet-13.mp4"
+                  src="/luvsick/brand/hero-meet-14.mp4"
                   poster="/luvsick/brand/hero-meet-12.jpg"
                   className="mx-auto block h-auto max-h-[70vh] w-full bg-[#cbb7a2] object-contain"
                   autoPlay
@@ -1047,15 +1047,13 @@ function Totals({ lang, market, priced }: { lang: Lang; market: Market; priced: 
   );
 }
 
-const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; c?: string; la: Record<Lang, string>; lb: Record<Lang, string>; lc?: Record<Lang, string> }> = {
+const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; la: Record<Lang, string>; lb: Record<Lang, string> }> = {
   "tracksuit-brown": {
-    video: "/luvsick/spin/brown.mp4",
+    video: "/luvsick/spin/brown-2.mp4",
     a: "/luvsick/details/brown-hoodie.jpg",
     b: "/luvsick/details/brown-pants.jpg",
-    c: "/luvsick/details/brown-signature.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
     lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
-    lc: { pt: "Assinatura", en: "Signature", fr: "Signature" },
   },
   "long-sleeve": {
     video: "/luvsick/spin/sleeve.mp4",
@@ -1065,13 +1063,39 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
     lb: { pt: "Manga", en: "Sleeve", fr: "Manche" },
   },
   "tracksuit-black": {
-    video: "/luvsick/spin/black.mp4",
+    video: "/luvsick/spin/black-2.mp4",
     a: "/luvsick/details/black-hoodie.jpg",
     b: "/luvsick/details/black-pants.jpg",
-    c: "/luvsick/details/black-signature.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
     lb: { pt: "Calças", en: "Trousers", fr: "Pantalon" },
-    lc: { pt: "Assinatura", en: "Signature", fr: "Signature" },
+  },
+};
+
+type Detail = { src: string; label: Record<Lang, string> };
+const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
+  "tracksuit-black": {
+    front: [
+      { src: "/luvsick/details/black-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
+      { src: "/luvsick/details/black-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
+      { src: "/luvsick/details/black-pocket.jpg", label: { pt: "Bolso", en: "Pocket", fr: "Poche" } },
+      { src: "/luvsick/details/black-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
+    ],
+    back: [
+      { src: "/luvsick/details/black-hood.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
+      { src: "/luvsick/details/black-back-hem.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
+    ],
+  },
+  "tracksuit-brown": {
+    front: [
+      { src: "/luvsick/details/brown-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
+      { src: "/luvsick/details/brown-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
+      { src: "/luvsick/details/brown-pocket.jpg", label: { pt: "Bolso", en: "Pocket", fr: "Poche" } },
+      { src: "/luvsick/details/brown-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
+    ],
+    back: [
+      { src: "/luvsick/details/brown-hood.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
+      { src: "/luvsick/details/brown-back-hem.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
+    ],
   },
 };
 
@@ -1352,13 +1376,15 @@ function ProductView({
       </div>
       {SPIN[product.id] ? (
         <div className="flex justify-center gap-2 sm:gap-3">
-          {[
-            { src: SPIN[product.id].a, label: SPIN[product.id].la[lang] },
-            { src: SPIN[product.id].b, label: SPIN[product.id].lb[lang] },
-            ...(SPIN[product.id].c ? [{ src: SPIN[product.id].c!, label: SPIN[product.id].lc?.[lang] ?? "" }] : []),
-          ].map((item, _index, all) => {
-            const width = all.length > 2 ? "w-[6.5rem] sm:w-28" : "w-28";
-            return <PhotoZoom key={item.src} src={item.src} alt={item.label} className={`h-36 ${width} overflow-hidden rounded-2xl`} imgClassName={`h-36 ${width} object-cover`} />;
+          {(SIDE_DETAILS[product.id]
+            ? SIDE_DETAILS[product.id][shot === 1 ? "back" : "front"].map((item) => ({ src: item.src, label: item.label[lang] }))
+            : [
+                { src: SPIN[product.id].a, label: SPIN[product.id].la[lang] },
+                { src: SPIN[product.id].b, label: SPIN[product.id].lb[lang] },
+              ]
+          ).map((item, _index, all) => {
+            const size = all.length > 3 ? "h-28 w-[4.75rem] sm:h-36 sm:w-28" : "h-36 w-28";
+            return <PhotoZoom key={item.src} src={item.src} alt={item.label} className={`${size} overflow-hidden rounded-2xl`} imgClassName={`${size} object-cover`} />;
           })}
         </div>
       ) : null}

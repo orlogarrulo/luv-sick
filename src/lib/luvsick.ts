@@ -45,7 +45,7 @@ export const PRODUCTS: Product[] = [
     id: "tracksuit-black",
     priceEur: 120,
     priceKz: 160000,
-    images: ["/luvsick/products/tracksuit-black-1.jpg", "/luvsick/products/tracksuit-black-2.jpg"],
+    images: ["/luvsick/products/tracksuit-black-1.jpg", "/luvsick/products/tracksuit-black-back.jpg"],
     name: { pt: "Fato de treino preto", en: "Black tracksuit", fr: "Survêtement noir" },
     material: {
       pt: "Moletom de algodão. Hoodie e calças, com o coração da marca.",
@@ -67,7 +67,7 @@ export const PRODUCTS: Product[] = [
     id: "tracksuit-brown",
     priceEur: 120,
     priceKz: 160000,
-    images: ["/luvsick/products/tracksuit-brown-1.jpg", "/luvsick/products/tracksuit-brown-2.jpg"],
+    images: ["/luvsick/products/tracksuit-brown-1.jpg", "/luvsick/products/tracksuit-brown-back.jpg"],
     name: { pt: "Fato de treino castanho", en: "Brown tracksuit", fr: "Survêtement marron" },
     material: {
       pt: "Moletom de algodão. Hoodie e calças, com o coração da marca.",
