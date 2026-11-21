@@ -1082,7 +1082,7 @@ const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
     ],
     back: [
       { src: "/luvsick/details/black-hood.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
-      { src: "/luvsick/details/black-back-hem.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
+      { src: "/luvsick/details/black-back-hem-2.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
     ],
   },
   "tracksuit-brown": {
@@ -1094,7 +1094,7 @@ const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
     ],
     back: [
       { src: "/luvsick/details/brown-hood.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
-      { src: "/luvsick/details/brown-back-hem.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
+      { src: "/luvsick/details/brown-back-hem-2.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
     ],
   },
 };
