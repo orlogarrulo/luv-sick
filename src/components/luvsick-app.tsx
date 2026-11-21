@@ -687,7 +687,7 @@ export function LuvSickApp() {
             <>
               <section id="inicio">
                 <video
-                  src="/luvsick/brand/hero-meet-15.mp4"
+                  src="/luvsick/brand/hero-meet-16.mp4"
                   poster="/luvsick/brand/hero-meet-12.jpg"
                   className="mx-auto block h-auto max-h-[70vh] w-full bg-[#cbb7a2] object-contain"
                   autoPlay
@@ -1052,7 +1052,7 @@ function Totals({ lang, market, priced }: { lang: Lang; market: Market; priced: 
 
 const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; la: Record<Lang, string>; lb: Record<Lang, string> }> = {
   "tracksuit-brown": {
-    video: "/luvsick/spin/brown-2.mp4",
+    video: "/luvsick/spin/brown-3.mp4",
     a: "/luvsick/details/brown-hoodie.jpg",
     b: "/luvsick/details/brown-pants.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
@@ -1066,7 +1066,7 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
     lb: { pt: "Manga", en: "Sleeve", fr: "Manche" },
   },
   "tracksuit-black": {
-    video: "/luvsick/spin/black-2.mp4",
+    video: "/luvsick/spin/black-3.mp4",
     a: "/luvsick/details/black-hoodie.jpg",
     b: "/luvsick/details/black-pants.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
@@ -1080,7 +1080,7 @@ const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
     front: [
       { src: "/luvsick/details/black-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
       { src: "/luvsick/details/black-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/black-pocket.jpg", label: { pt: "Bolso", en: "Pocket", fr: "Poche" } },
+      { src: "/luvsick/details/black-front-hem.jpg", label: { pt: "Bainha", en: "Hem", fr: "Ourlet" } },
       { src: "/luvsick/details/black-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
     ],
     back: [
@@ -1092,7 +1092,7 @@ const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
     front: [
       { src: "/luvsick/details/brown-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
       { src: "/luvsick/details/brown-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/brown-pocket.jpg", label: { pt: "Bolso", en: "Pocket", fr: "Poche" } },
+      { src: "/luvsick/details/brown-front-hem.jpg", label: { pt: "Bainha", en: "Hem", fr: "Ourlet" } },
       { src: "/luvsick/details/brown-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
     ],
     back: [
