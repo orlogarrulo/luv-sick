@@ -136,6 +136,8 @@ export async function createCheckout(ref: string) {
   const form = new URLSearchParams({
     mode: "payment",
     locale: "pt",
+    // Só euros: sem conversão automática de moeda (Adaptive Pricing).
+    "adaptive_pricing[enabled]": "false",
     client_reference_id: target.ref,
     "line_items[0][quantity]": "1",
     "line_items[0][price_data][currency]": "eur",
