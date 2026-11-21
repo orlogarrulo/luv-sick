@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GestaoRouteImport } from './routes/gestao'
 import { Route as ApiCronReservasRouteImport } from './routes/api/cron-reservas'
+import { Route as ApiLuvUploadRouteImport } from './routes/api/luv-upload'
 import { Route as ApiLuvsickRouteImport } from './routes/api/luvsick'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe-webhook'
 import { Route as ReciboRefRouteImport } from './routes/recibo.$ref'
@@ -30,6 +31,11 @@ const GestaoRoute = GestaoRouteImport.update({
 const ApiCronReservasRoute = ApiCronReservasRouteImport.update({
   id: '/api/cron-reservas',
   path: '/api/cron-reservas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLuvUploadRoute = ApiLuvUploadRouteImport.update({
+  id: '/api/luv-upload',
+  path: '/api/luv-upload',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLuvsickRoute = ApiLuvsickRouteImport.update({
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/gestao': typeof GestaoRoute
   '/api/cron-reservas': typeof ApiCronReservasRoute
+  '/api/luv-upload': typeof ApiLuvUploadRoute
   '/api/luvsick': typeof ApiLuvsickRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/recibo/$ref': typeof ReciboRefRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/gestao': typeof GestaoRoute
   '/api/cron-reservas': typeof ApiCronReservasRoute
+  '/api/luv-upload': typeof ApiLuvUploadRoute
   '/api/luvsick': typeof ApiLuvsickRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/recibo/$ref': typeof ReciboRefRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/gestao': typeof GestaoRoute
   '/api/cron-reservas': typeof ApiCronReservasRoute
+  '/api/luv-upload': typeof ApiLuvUploadRoute
   '/api/luvsick': typeof ApiLuvsickRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/recibo/$ref': typeof ReciboRefRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gestao'
     | '/api/cron-reservas'
+    | '/api/luv-upload'
     | '/api/luvsick'
     | '/api/stripe-webhook'
     | '/recibo/$ref'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gestao'
     | '/api/cron-reservas'
+    | '/api/luv-upload'
     | '/api/luvsick'
     | '/api/stripe-webhook'
     | '/recibo/$ref'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gestao'
     | '/api/cron-reservas'
+    | '/api/luv-upload'
     | '/api/luvsick'
     | '/api/stripe-webhook'
     | '/recibo/$ref'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GestaoRoute: typeof GestaoRoute
   ApiCronReservasRoute: typeof ApiCronReservasRoute
+  ApiLuvUploadRoute: typeof ApiLuvUploadRoute
   ApiLuvsickRoute: typeof ApiLuvsickRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ReciboRefRoute: typeof ReciboRefRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/api/cron-reservas'
       fullPath: '/api/cron-reservas'
       preLoaderRoute: typeof ApiCronReservasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/luv-upload': {
+      id: '/api/luv-upload'
+      path: '/api/luv-upload'
+      fullPath: '/api/luv-upload'
+      preLoaderRoute: typeof ApiLuvUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/luvsick': {
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GestaoRoute: GestaoRoute,
   ApiCronReservasRoute: ApiCronReservasRoute,
+  ApiLuvUploadRoute: ApiLuvUploadRoute,
   ApiLuvsickRoute: ApiLuvsickRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ReciboRefRoute: ReciboRefRoute,

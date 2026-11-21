@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { PRODUCTS, SIZES, reserveReminderText } from "@/lib/luvsick";
+import { PRODUCTS, SIZES, productById, reserveReminderText } from "@/lib/luvsick";
+import { ProductsDesk } from "@/components/luvsick-products-desk";
 import { luvAckOrder, luvCancelReserve, luvConfirmReserve, luvDesk, luvIssueReceipt, luvMarkReservations, luvProofPart, luvRejectProof, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number; received: number; out: number };
@@ -164,8 +165,8 @@ Luv Sick`;
 function lineLabel(lines: Line[]) {
   return lines
     .map((line) => {
-      const product = PRODUCTS.find((item) => item.id === line.productId);
-      return `${product?.name.pt ?? line.productId} · ${line.size} · ${line.qty}`;
+      const product = productById(line.productId);
+      return `${product?.name.pt ?? (line as { name?: string }).name ?? line.productId} · ${line.size} · ${line.qty}`;
     })
     .join("\n");
 }
@@ -193,7 +194,7 @@ const KEY = "luvsick-desk";
 
 export function LuvSickDesk() {
   const [code, setCode] = useState("");
-  const [tab, setTab] = useState<"stock" | "orders" | "visits" | "coupons" | "reserves">("stock");
+  const [tab, setTab] = useState<"stock" | "orders" | "visits" | "coupons" | "reserves" | "products">("stock");
   const [stock, setStock] = useState<Stock[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [visits, setVisits] = useState<Visits>({ total: 0, countries: [], cities: [] });
@@ -398,9 +399,9 @@ export function LuvSickDesk() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(["stock", "orders", "visits", "coupons", "reserves"] as const).map((item) => (
+          {(["stock", "orders", "visits", "coupons", "reserves", "products"] as const).map((item) => (
             <button key={item} type="button" onClick={() => setTab(item)} className={`px-3 py-2 text-sm font-bold ${tab === item ? "bg-white text-black" : "ring-1 ring-white"}`}>
-              {item === "stock" ? "Stock" : item === "orders" ? `Encomendas${unseen.length ? ` (${unseen.length})` : ""}` : item === "visits" ? "Visitas" : item === "coupons" ? "Cupões" : `Reservas${reservations.length ? ` (${reservations.length})` : ""}`}
+              {item === "stock" ? "Stock" : item === "orders" ? `Encomendas${unseen.length ? ` (${unseen.length})` : ""}` : item === "visits" ? "Visitas" : item === "coupons" ? "Cupões" : item === "products" ? "Produtos" : `Reservas${reservations.length ? ` (${reservations.length})` : ""}`}
             </button>
           ))}
         </div>
@@ -682,6 +683,7 @@ export function LuvSickDesk() {
             </div>
           </section>
         ) : null}
+        {tab === "products" ? <ProductsDesk code={code} /> : null}
         {tab === "coupons" ? (
           <section className="grid gap-3">
             <form onSubmit={createCoupon} className="grid gap-2 sm:grid-cols-[1fr_6rem_auto]">

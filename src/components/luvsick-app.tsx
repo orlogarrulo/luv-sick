@@ -16,10 +16,12 @@ import {
   productById,
   quote,
   splitHalf,
+  type Catalog,
   type Lang,
   type Market,
   type Product,
 } from "@/lib/luvsick";
+import { useCatalog } from "@/lib/luvsick-catalog-client";
 import { DIALS, dialOf, fullPhone } from "@/lib/dials";
 import { phoneOk } from "@/lib/phone";
 import { PAY_COPY, PayDetails, openStripe } from "@/components/luvsick-pay";
@@ -84,7 +86,8 @@ type Account = {
   reservations: { ref: string; depositLabel: string; balanceLabel: string; createdAt: string; paid: boolean }[];
 };
 
-export function LuvSickApp() {
+export function LuvSickApp({ catalog }: { catalog?: Catalog | null } = {}) {
+  useCatalog(catalog);
   const [view, setView] = useState<View>("splash");
   const [lang, setLang] = useState<Lang>("pt");
   const [market, setMarket] = useState<Market>("PT");
@@ -1074,44 +1077,6 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
   },
 };
 
-type Detail = { src: string; label: Record<Lang, string> };
-const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
-  "long-sleeve": {
-    front: [
-      { src: "/luvsick/details/sleeve-front-hd.jpg", label: { pt: "Frente", en: "Front", fr: "Face" } },
-      { src: "/luvsick/details/sleeve-arm-hd.jpg", label: { pt: "Manga", en: "Sleeve", fr: "Manche" } },
-    ],
-    back: [
-      { src: "/luvsick/details/sleeve-back-script-hd.jpg", label: { pt: "Lettering na manga", en: "Sleeve lettering", fr: "Lettrage sur la manche" } },
-      { src: "/luvsick/details/sleeve-back-hd.jpg", label: { pt: "Costas", en: "Back", fr: "Dos" } },
-    ],
-  },
-  "tracksuit-black": {
-    front: [
-      { src: "/luvsick/details/black-hoodie-hd.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
-      { src: "/luvsick/details/black-cuff-hd.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/black-hem-signature-hd.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
-      { src: "/luvsick/details/black-pants-hd.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
-    ],
-    back: [
-      { src: "/luvsick/details/black-hood-hd.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
-      { src: "/luvsick/details/black-back-hem-2-hd.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
-    ],
-  },
-  "tracksuit-brown": {
-    front: [
-      { src: "/luvsick/details/brown-hoodie-hd.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
-      { src: "/luvsick/details/brown-cuff-hd.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/brown-hem-signature-hd.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
-      { src: "/luvsick/details/brown-pants-hd.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
-    ],
-    back: [
-      { src: "/luvsick/details/brown-hood-hd.jpg", label: { pt: "Capuz", en: "Hood", fr: "Capuche" } },
-      { src: "/luvsick/details/brown-back-hem-2-hd.jpg", label: { pt: "Assinatura", en: "Signature", fr: "Signature" } },
-    ],
-  },
-};
-
 function PhotoZoom({ src, alt, className, imgClassName, caption, gallery, index = 0 }: { src: string; alt: string; className?: string; imgClassName?: string; caption?: string; gallery?: { src: string; alt: string }[]; index?: number }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1460,20 +1425,15 @@ function ProductView({
       <div className="overflow-hidden rounded-2xl bg-[#ebe4da]">
         <img src={product.images[shot]} alt={product.alt[lang][shot]} className="mx-auto max-h-[70vh] w-full object-contain" />
       </div>
-      {SPIN[product.id] ? (
+      {(product.details?.[shot === 1 ? "back" : "front"]?.length ?? 0) > 0 ? (
         <div className="flex justify-center gap-2 sm:gap-3">
-          {(SIDE_DETAILS[product.id]
-            ? SIDE_DETAILS[product.id][shot === 1 ? "back" : "front"].map((item) => ({ src: item.src, label: item.label[lang] }))
-            : [
-                { src: SPIN[product.id].a, label: SPIN[product.id].la[lang] },
-                { src: SPIN[product.id].b, label: SPIN[product.id].lb[lang] },
-              ]
-          ).map((item, index, all) => {
+          {(product.details?.[shot === 1 ? "back" : "front"] ?? []).map((entry) => ({ src: entry.src, label: entry.label[lang] || entry.label.pt })).map((item, index, all) => {
             const size = all.length > 3 ? "h-28 w-[4.75rem] sm:h-36 sm:w-28" : "h-36 w-28";
             return <PhotoZoom key={item.src} src={item.src} alt={item.label} gallery={all.map((entry) => ({ src: entry.src, alt: entry.label }))} index={index} className={`${size} overflow-hidden rounded-2xl`} imgClassName={`${size} object-cover`} />;
           })}
         </div>
       ) : null}
+      {product.video ? <video key={product.video} src={product.video} className="mx-auto max-h-[60vh] w-full rounded-2xl bg-white object-contain" autoPlay muted loop playsInline preload="metadata" /> : null}
       <div className="flex gap-2">
         {[t.front, t.back].map((label, index) => (
           <button key={label} type="button" onClick={() => onShot(index)} aria-pressed={shot === index} className={`rounded-full px-3 py-2 text-sm font-bold ring-1 ring-[#1a1714] ${shot === index ? "bg-[#1a1714] text-white" : ""}`}>

@@ -1,13 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { getSql } from "@/lib/db";
-import { PAY, payName, productById, type Market } from "@/lib/luvsick";
+import { PAY, kzAmount, payName, productById, type Market } from "@/lib/luvsick";
 import { allowed, ensureStock } from "./luvsick.server";
 import { LOGO_PNG_BASE64 } from "./logo-png";
 import { APPLE_PAY_WIRED, stripeKeys } from "./stripe.server";
 
 type Sql = Awaited<ReturnType<typeof getSql>>;
-type Line = { productId: string; size: string; qty: number };
+type Line = { productId: string; size: string; qty: number; unit?: number; name?: string };
 
 export const PROOF_MAX_BYTES = 5 * 1024 * 1024;
 /** Bytes por pedaço: cada envio fica bem abaixo do limite de 4,5 MB das funções do Vercel. */
@@ -507,11 +507,12 @@ export async function invoicePdf(ref: string): Promise<{ file: Uint8Array; name:
   for (const item of data.lines) {
     const product = productById(item.productId);
     const qty = Math.max(0, Math.floor(Number(item.qty)));
-    if (!product || !qty) continue;
-    const unit = data.market === "AO" ? product.priceKz : product.priceEur;
+    if ((!product && !item.unit) || !qty) continue;
+    // Preço gravado no momento da compra; para encomendas antigas, o preço atual do catálogo.
+    const unit = Number(item.unit) > 0 ? Number(item.unit) : product ? (data.market === "AO" ? kzAmount(product) : product.priceEur) : 0;
     gross += unit * qty;
     right(String(qty), L + 18, y, 9);
-    text(`${product.name.pt} · tamanho ${item.size}`, L + 36, y, 9);
+    text(`${product?.name.pt ?? item.name ?? item.productId} · tamanho ${item.size}`, L + 36, y, 9);
     right(`${rate} %`, 362, y, 9);
     right(money(unit, data.market), 452, y, 9);
     right(money(unit * qty, data.market), R, y, 9);

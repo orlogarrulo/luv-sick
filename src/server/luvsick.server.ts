@@ -1,9 +1,12 @@
 import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { getSql } from "@/lib/db";
 import {
+  ALL_PRODUCTS,
   PAY,
   PRACTICE_EMAIL,
   PRODUCTS,
+  kzAmount,
+  productById,
   RESERVE_EXPIRE_HOURS,
   RESERVE_REMIND_HOURS,
   SIZES,
@@ -114,7 +117,9 @@ export async function ensureStock() {
   const sql = await getSql();
   await ensureReservationTables(sql);
   await sql.query(`alter table luv_stock add column if not exists received integer`);
-  for (const product of PRODUCTS) {
+  // Catálogo dinâmico (gestão → Produtos): preços, câmbio e peças vêm da BD em cada pedido.
+  await (await import("./luvsick-catalog.server")).loadCatalog(sql);
+  for (const product of ALL_PRODUCTS) {
     for (const size of SIZES) {
       await sql.query(
         `insert into luv_stock (product_id, size, qty) values ($1, $2, $3) on conflict (product_id, size) do nothing`,
@@ -124,6 +129,15 @@ export async function ensureStock() {
   }
   await openLedger(sql);
   return sql;
+}
+
+/** Linhas limpas (só campos conhecidos) com o preço unitário e o nome no momento da compra, calculados no servidor. */
+function priceLines(lines: Need[], market: Market) {
+  return lines.map((line) => {
+    const product = productById(line.productId);
+    const unit = product ? (market === "AO" ? kzAmount(product) : product.priceEur) : 0;
+    return { productId: line.productId, size: line.size, qty: Math.floor(Number(line.qty)), unit, name: product?.name.pt ?? line.productId };
+  });
 }
 
 function addMoves(bucket: Map<string, number>, raw: string) {
@@ -203,7 +217,10 @@ export async function luvPlace(input: {
   email?: string;
   lang?: string;
 }) {
-  const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
+  await (await import("./luvsick-catalog.server")).loadCatalog();
+  let lines: Need[] = (Array.isArray(input.lines) ? input.lines : [])
+    .map((line) => ({ productId: String(line?.productId ?? ""), size: String(line?.size ?? ""), qty: Math.floor(Number(line?.qty)) }))
+    .filter((line) => line.qty > 0 && line.qty <= 50 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const country = input.country === "AO" || input.country === "PT" ? input.country : "";
   if (!lines.length || !input.name.trim() || !phoneOkFull(input.phone) || !country || !postalOk(country, input.postal)) {
     return { ok: false as const, error: !input.phone.trim() || phoneOkFull(input.phone) ? "form" as const : "phone" as const };
@@ -219,6 +236,7 @@ export async function luvPlace(input: {
     percent = Number(found[0].percent);
   }
   const priced = quote(lines, market, percent);
+  lines = priceLines(lines, market);
   const totalLabel = formatAmount(priced.total, market);
   const ref = `LS-${randomBytes(2).toString("hex").toUpperCase()}`;
   const id = randomBytes(8).toString("hex");
@@ -639,7 +657,7 @@ function payLabel(market: string, pay: string) {
 function reserveLetter(row: DeskReservation) {
   const items = row.lines
     .map((line) => {
-      const product = PRODUCTS.find((item) => item.id === line.productId);
+      const product = productById(line.productId);
       return `- ${product?.name.pt ?? line.productId} · ${line.size} · ${line.qty}`;
     })
     .join("\n");
@@ -914,7 +932,10 @@ export async function luvSaveAddress(token: string, input: { address: string; ci
 }
 
 export async function luvReserve(input: { name: string; phone: string; email: string; lines: Need[]; pay: string; market: string; lang?: string }) {
-  const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
+  await (await import("./luvsick-catalog.server")).loadCatalog();
+  let lines: Need[] = (Array.isArray(input.lines) ? input.lines : [])
+    .map((line) => ({ productId: String(line?.productId ?? ""), size: String(line?.size ?? ""), qty: Math.floor(Number(line?.qty)) }))
+    .filter((line) => line.qty > 0 && line.qty <= 50 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const email = input.email.trim().toLowerCase();
   const market: Market = input.market === "PT" ? "PT" : "AO";
   const pay = (await payAllowed(market, input.pay)) ? payLabel(market, input.pay) : "";
@@ -925,6 +946,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
   if (flag[0]?.value === "1") return { ok: false as const, error: "closed" as const };
   const priced = quote(lines, market);
+  lines = priceLines(lines, market);
   const parts = splitHalf(priced.total);
   const totalLabel = formatAmount(priced.total, market);
   const depositLabel = formatAmount(parts.deposit, market);
@@ -1114,7 +1136,8 @@ export async function luvReceipt(ref: string) {
 
 export async function luvSetStock(code: string, productId: string, size: string, qty: number) {
   if (!allowed(code)) return { ok: false as const };
-  if (!PRODUCTS.some((item) => item.id === productId) || !SIZES.includes(size as (typeof SIZES)[number])) return { ok: false as const };
+  await (await import("./luvsick-catalog.server")).loadCatalog();
+  if (!ALL_PRODUCTS.some((item) => item.id === productId) || !SIZES.includes(size as (typeof SIZES)[number])) return { ok: false as const };
   const received = Math.max(0, Math.floor(qty));
   const sql = await ensureStock();
   const rows = await sql.query<{ qty: number; received: number | null }>(`select qty, received from luv_stock where product_id = $1 and size = $2`, [productId, size]);

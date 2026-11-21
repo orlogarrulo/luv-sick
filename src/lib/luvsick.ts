@@ -5,20 +5,33 @@ export const LANGS: Lang[] = ["pt", "en", "fr"];
 export const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 export const SHOP_EMAIL = "";
 export const PRACTICE_EMAIL = "arrulo.orlog@gmail.com";
-const UNIT_KZ = 1350;
+/** Câmbio inicial (Kz por 1 €). O valor em vigor vem da base de dados (gestão → Produtos). */
+export const DEFAULT_KZ_RATE = 1350;
+
+export type Detail = { src: string; label: Record<Lang, string> };
 
 export type Product = {
   id: string;
   priceEur: number;
-  priceKz: number;
+  /** Preço fixo em Kz; null = calculado pelo câmbio (preço € × Kz por 1 €). */
+  priceKz: number | null;
   images: [string, string];
   name: Record<Lang, string>;
   material: Record<Lang, string>;
   blurb: Record<Lang, string>;
   alt: Record<Lang, [string, string]>;
+  /** Janelas de pormenores (frente / costas) da página do produto. */
+  details?: { front: Detail[]; back: Detail[] };
+  /** Vídeo do produto (opcional). */
+  video?: string;
+  active?: boolean;
+  sort?: number;
+  /** Peça criada na gestão (os 3 conjuntos de origem são "base"). */
+  custom?: boolean;
 };
 
-export const PRODUCTS: Product[] = [
+/** Catálogo de origem (os 3 conjuntos). Serve de semente para a tabela luv_products e de reserva se a BD falhar. */
+export const BASE_PRODUCTS: Product[] = [
   {
     id: "long-sleeve",
     priceEur: 70,
@@ -87,13 +100,92 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
+const D = (src: string, pt: string, en: string, fr: string): Detail => ({ src, label: { pt, en, fr } });
+
+/** Pormenores de origem dos 3 conjuntos (usados quando a BD não tem pormenores próprios para o item). */
+export const BASE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
+  "long-sleeve": {
+    front: [D("/luvsick/details/sleeve-front-hd.jpg", "Frente", "Front", "Face"), D("/luvsick/details/sleeve-arm-hd.jpg", "Manga", "Sleeve", "Manche")],
+    back: [
+      D("/luvsick/details/sleeve-back-script-hd.jpg", "Lettering na manga", "Sleeve lettering", "Lettrage sur la manche"),
+      D("/luvsick/details/sleeve-back-hd.jpg", "Costas", "Back", "Dos"),
+    ],
+  },
+  "tracksuit-black": {
+    front: [
+      D("/luvsick/details/black-hoodie-hd.jpg", "Coração no peito", "Chest heart", "Cœur poitrine"),
+      D("/luvsick/details/black-cuff-hd.jpg", "Punho", "Cuff", "Poignet"),
+      D("/luvsick/details/black-hem-signature-hd.jpg", "Assinatura na bainha", "Hem signature", "Signature sur l'ourlet"),
+      D("/luvsick/details/black-pants-hd.jpg", "Calças", "Trousers", "Pantalon"),
+    ],
+    back: [D("/luvsick/details/black-hood-hd.jpg", "Capuz", "Hood", "Capuche"), D("/luvsick/details/black-back-hem-2-hd.jpg", "Assinatura", "Signature", "Signature")],
+  },
+  "tracksuit-brown": {
+    front: [
+      D("/luvsick/details/brown-hoodie-hd.jpg", "Coração no peito", "Chest heart", "Cœur poitrine"),
+      D("/luvsick/details/brown-cuff-hd.jpg", "Punho", "Cuff", "Poignet"),
+      D("/luvsick/details/brown-hem-signature-hd.jpg", "Assinatura na bainha", "Hem signature", "Signature sur l'ourlet"),
+      D("/luvsick/details/brown-pants-hd.jpg", "Calças", "Trousers", "Pantalon"),
+    ],
+    back: [D("/luvsick/details/brown-hood-hd.jpg", "Capuz", "Hood", "Capuche"), D("/luvsick/details/brown-back-hem-2-hd.jpg", "Assinatura", "Signature", "Signature")],
+  },
+};
+
+/* ---------- Catálogo dinâmico ----------
+ * PRODUCTS = peças ativas, pela ordem da gestão (é o que a loja mostra e o que se pode comprar).
+ * ALL_PRODUCTS = todas, incluindo desativadas (para nomes em recibos/encomendas antigas).
+ * Os arrays são atualizados no lugar por setCatalog(), com os dados da BD (servidor e browser). */
+export const PRODUCTS: Product[] = BASE_PRODUCTS.map((item, index) => ({ ...item, details: BASE_DETAILS[item.id], active: true, sort: index }));
+export const ALL_PRODUCTS: Product[] = [...PRODUCTS];
+export const RATE = { kz: DEFAULT_KZ_RATE };
+export type Catalog = { products: Product[]; rate: number; stamp: string };
+
+let catalogStamp = "";
+let catalogVersion = 0;
+const catalogListeners = new Set<() => void>();
+
+export function setCatalog(next: Catalog | null | undefined, silent = false) {
+  if (!next || !Array.isArray(next.products) || !next.products.length) return false;
+  const rate = Number(next.rate);
+  const stamp = `${next.stamp}|${rate}|${next.products.length}`;
+  if (stamp === catalogStamp && next.stamp) return false;
+  catalogStamp = stamp;
+  if (Number.isFinite(rate) && rate > 0) RATE.kz = rate;
+  const all = next.products.map((item) => ({ ...item, details: item.details ?? BASE_DETAILS[item.id] }));
+  ALL_PRODUCTS.splice(0, ALL_PRODUCTS.length, ...all);
+  const active = all.filter((item) => item.active !== false).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+  PRODUCTS.splice(0, PRODUCTS.length, ...active);
+  catalogVersion += 1;
+  if (!silent) catalogListeners.forEach((listener) => listener());
+  return true;
+}
+
+export function subscribeCatalog(listener: () => void) {
+  catalogListeners.add(listener);
+  return () => {
+    catalogListeners.delete(listener);
+  };
+}
+
+export function getCatalogVersion() {
+  return catalogVersion;
+}
+
 export function productById(id: string) {
-  return PRODUCTS.find((item) => item.id === id) ?? null;
+  return ALL_PRODUCTS.find((item) => item.id === id) ?? null;
+}
+
+export function isOnSale(id: string) {
+  return PRODUCTS.some((item) => item.id === id);
+}
+
+export function kzFromEur(eur: number, rate = RATE.kz) {
+  return Math.round(eur * rate);
 }
 
 export function kzAmount(product: Product) {
-  if (Number.isFinite(product.priceKz)) return product.priceKz;
-  return Math.round((product.priceEur * UNIT_KZ) / 1000) * 1000;
+  if (product.priceKz != null && Number.isFinite(product.priceKz) && product.priceKz > 0) return product.priceKz;
+  return kzFromEur(product.priceEur);
 }
 
 export function splitHalf(total: number) {

@@ -142,3 +142,30 @@ export const luvStripeSync = createServerFn({ method: "POST" })
 export const luvCancelReserve = createServerFn({ method: "POST" })
   .validator((data: { code: string; id: string }) => data)
   .handler(async ({ data }) => (await luvApi()).luvCancelReserve(data.code, data.id));
+
+/* ---------- Catálogo (gestão → Produtos) ---------- */
+async function catalogApi() {
+  return import("./luvsick-catalog.server");
+}
+
+export const luvCatalog = createServerFn({ method: "POST" }).handler(async () => (await catalogApi()).loadCatalog());
+
+export const luvDeskCatalog = createServerFn({ method: "POST" })
+  .validator((data: { code: string }) => data)
+  .handler(async ({ data }) => (await catalogApi()).luvDeskCatalog(data.code));
+
+export const luvSaveProduct = createServerFn({ method: "POST" })
+  .validator((data: { code: string; product: import("./luvsick-catalog.server").ProductInput }) => data)
+  .handler(async ({ data }) => (await catalogApi()).luvSaveProduct(data.code, data.product));
+
+export const luvDeleteProduct = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string }) => data)
+  .handler(async ({ data }) => (await catalogApi()).luvDeleteProduct(data.code, data.id));
+
+export const luvMoveProduct = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string; dir: number }) => data)
+  .handler(async ({ data }) => (await catalogApi()).luvMoveProduct(data.code, data.id, data.dir));
+
+export const luvSetRate = createServerFn({ method: "POST" })
+  .validator((data: { code: string; rate: number }) => data)
+  .handler(async ({ data }) => (await catalogApi()).luvSetRate(data.code, data.rate));

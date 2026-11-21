@@ -108,7 +108,7 @@ function Lines({ lines }: { lines: Line[] }) {
         const item = productById(line.productId);
         return (
           <li key={`${line.productId}-${line.size}`} className="flex justify-between gap-3">
-            <span>{item?.name.pt ?? line.productId} · {line.size} · {line.qty}</span>
+            <span>{item?.name.pt ?? (line as { name?: string }).name ?? line.productId} · {line.size} · {line.qty}</span>
           </li>
         );
       })}
