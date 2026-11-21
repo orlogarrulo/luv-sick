@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { productById } from "@/lib/luvsick";
-import { luvReceipt, luvReservePaper } from "@/server/fns";
+import { useCallback, useEffect, useState } from "react";
+import { PayDetails, ProofUpload, proofWhatsApp } from "@/components/luvsick-pay";
+import { productById, type Market } from "@/lib/luvsick";
+import { luvPayInfo, luvReceipt, luvReservePaper } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
 type Order = {
@@ -40,6 +41,56 @@ function whenLabel(value: string) {
   return Number.isNaN(when.getTime()) ? value : when.toLocaleString("pt-PT");
 }
 
+type PayInfo = {
+  ref: string;
+  kind: "order" | "reserve";
+  market: Market;
+  pay: string;
+  payLabel: string;
+  amountLabel: string;
+  paid: boolean;
+  proofStatus: string;
+  proofs: number;
+};
+
+const STATUS: Record<string, string> = {
+  "": "À espera do pagamento",
+  sent: "Comprovativo enviado",
+  rejected: "Comprovativo rejeitado. Envia outro ou fala connosco pelo WhatsApp.",
+  accepted: "Paga",
+};
+
+/** Pagamento por confirmar: dados para pagar, envio do comprovativo e WhatsApp. */
+function PaymentBox({ info, onChange }: { info: PayInfo; onChange: () => void }) {
+  const status = info.paid ? "Paga" : STATUS[info.proofStatus] ?? STATUS[""];
+  return (
+    <section className="mx-auto grid max-w-sm gap-4 bg-white p-6 text-sm print:hidden" data-payment-box>
+      <img src="/luvsick/brand/logo-black.svg" alt="Luv Sick" className="mx-auto h-14 w-14 object-contain" />
+      <h1 className="text-center text-lg font-medium tracking-[0.2em]">PAGAMENTO</h1>
+      <p className="text-center">
+        {info.kind === "reserve" ? "Reserva" : "Encomenda"} <span className="font-bold">{info.ref}</span>
+      </p>
+      <p className="text-center font-bold" data-proof-status>
+        Estado: {status}
+      </p>
+      <PayDetails market={info.market} pay={info.pay} amountLabel={info.amountLabel} refCode={info.ref} lang="pt" />
+      {info.kind === "reserve" ? <p className="text-xs text-[#1a1714]/70">Valor do sinal de 50%. O restante paga-se no dia do envio.</p> : null}
+      <ProofUpload refCode={info.ref} onDone={onChange} />
+      <a href={proofWhatsApp(info.market, info.ref, info.amountLabel)} target="_blank" rel="noreferrer" className="rounded-full border border-[#1a1714] px-5 py-3 text-center font-bold">
+        Enviar pelo WhatsApp
+      </a>
+    </section>
+  );
+}
+
+function InvoiceLink({ refCode }: { refCode: string }) {
+  return (
+    <a href={`/api/fatura/${refCode}`} target="_blank" rel="noreferrer" className="btn-brown mx-auto mt-4 block w-fit rounded-full px-6 py-3 text-center print:hidden" data-invoice-link>
+      Descarregar fatura (PDF)
+    </a>
+  );
+}
+
 function Lines({ lines }: { lines: Line[] }) {
   return (
     <ul className="grid gap-2 border-y border-[#1a1714]/15 py-3">
@@ -60,6 +111,17 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
   const [state, setState] = useState<"wait" | "open" | "pending" | "missing">("wait");
   const [order, setOrder] = useState<Order | null>(null);
   const [paper, setPaper] = useState<Paper | null>(null);
+  const [info, setInfo] = useState<PayInfo | null>(null);
+
+  const loadPay = useCallback(() => {
+    luvPayInfo({ data: { ref: refCode } }).then((res) => {
+      if (res.ok) setInfo(res);
+    });
+  }, [refCode]);
+
+  useEffect(() => {
+    loadPay();
+  }, [loadPay]);
 
   useEffect(() => {
     if (reserve) {
@@ -93,6 +155,7 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
     return (
       <main className="min-h-dvh bg-[#f4f1ec] px-4 py-8 text-[#1a1714]">
         {paper.trial ? <p className="mx-auto mb-4 max-w-sm text-center text-sm">Ensaio. Este documento não entra no stock nem nos totais.</p> : null}
+        {info && !info.paid ? <div className="mb-6"><PaymentBox info={info} onChange={loadPay} /></div> : null}
         <div className="mx-auto grid max-w-sm gap-6">
           <article className="grid gap-3 bg-white p-6 text-sm">
             <img src="/luvsick/brand/logo-black.svg" alt="Luv Sick" className="mx-auto h-14 w-14 object-contain" />
@@ -105,7 +168,7 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
             <Lines lines={paper.lines} />
             <p>Pagamento: {paper.pay} · 50%</p>
             <p className="text-lg font-bold">{paper.depositLabel}</p>
-            <p className="text-center text-xs tracking-[0.16em]">PAGO · LUV SICK</p>
+            <p className="text-center text-xs tracking-[0.16em]">{info && !info.paid ? "POR CONFIRMAR · LUV SICK" : "PAGO · LUV SICK"}</p>
           </article>
           <article className="grid gap-3 bg-white p-6 text-sm">
             <h1 className="text-center text-lg font-medium tracking-[0.2em]">FATURA</h1>
@@ -119,14 +182,16 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
             <p className="text-center text-xs tracking-[0.16em]">EM ABERTO · LUV SICK</p>
           </article>
         </div>
+        {info?.paid ? <InvoiceLink refCode={paper.ref} /> : null}
         <button type="button" onClick={() => window.print()} className="btn-brown mx-auto mt-6 block rounded-full px-6 py-3 print:hidden">Imprimir</button>
       </main>
     );
   }
   if (state === "pending" || !order) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-[#f4f1ec] px-4 text-center text-[#1a1714]">
-        <p className="max-w-sm">O talão de {refCode.toUpperCase()} fica disponível depois de confirmarmos o pagamento.</p>
+      <main className="min-h-dvh bg-[#f4f1ec] px-4 py-8 text-[#1a1714]">
+        {info && !info.paid ? <PaymentBox info={info} onChange={loadPay} /> : null}
+        <p className="mx-auto mt-6 max-w-sm text-center text-sm">O talão de {refCode.toUpperCase()} fica disponível depois de confirmarmos o pagamento.</p>
       </main>
     );
   }
@@ -159,6 +224,7 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
             <p className="text-center text-xs tracking-[0.16em]">ENSAIO · LUV SICK</p>
           </article>
         </div>
+        <InvoiceLink refCode={order.ref} />
         <button type="button" onClick={() => window.print()} className="btn-brown mx-auto mt-6 block rounded-full px-6 py-3 print:hidden">Imprimir</button>
       </main>
     );
@@ -180,6 +246,7 @@ export function ReceiptPage({ refCode }: { refCode: string }) {
         <p className="text-lg font-bold">Total {order.totalLabel}</p>
         <p className="text-center text-xs tracking-[0.16em]">PAGO · LUV SICK</p>
       </article>
+      <InvoiceLink refCode={order.ref} />
       <button type="button" onClick={() => window.print()} className="btn-brown mx-auto mt-6 block rounded-full px-6 py-3 print:hidden">Imprimir</button>
     </main>
   );

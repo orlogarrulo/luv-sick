@@ -103,3 +103,30 @@ export const luvResendReserve = createServerFn({ method: "POST" })
   .validator((data: { code: string; id: string }) => data)
   .handler(async ({ data }) => (await luvApi()).luvResendReserve(data.code, data.id));
 
+async function payApi() {
+  return import("./luvsick-pay.server");
+}
+
+export const luvPayInfo = createServerFn({ method: "POST" })
+  .validator((data: { ref: string }) => data)
+  .handler(async ({ data }) => (await payApi()).luvPayInfo(data.ref));
+
+export const luvProofStart = createServerFn({ method: "POST" })
+  .validator((data: { ref: string; name: string; mime: string; size: number }) => data)
+  .handler(async ({ data }) => (await payApi()).luvProofStart(data));
+
+export const luvProofChunk = createServerFn({ method: "POST" })
+  .validator((data: { id: string; idx: number; data: string }) => data)
+  .handler(async ({ data }) => (await payApi()).luvProofChunk(data));
+
+export const luvProofFinish = createServerFn({ method: "POST" })
+  .validator((data: { id: string }) => data)
+  .handler(async ({ data }) => (await payApi()).luvProofFinish(data));
+
+export const luvProofPart = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string; idx: number }) => data)
+  .handler(async ({ data }) => (await payApi()).luvProofPart(data.code, data.id, data.idx));
+
+export const luvRejectProof = createServerFn({ method: "POST" })
+  .validator((data: { code: string; ref: string }) => data)
+  .handler(async ({ data }) => (await payApi()).luvRejectProof(data.code, data.ref));

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PRODUCTS, SIZES } from "@/lib/luvsick";
-import { luvAckOrder, luvConfirmReserve, luvDesk, luvIssueReceipt, luvMarkReservations, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
+import { luvAckOrder, luvConfirmReserve, luvDesk, luvIssueReceipt, luvMarkReservations, luvProofPart, luvRejectProof, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number; received: number; out: number };
 type Line = { productId: string; size: string; qty: number };
@@ -23,7 +23,9 @@ type Order = {
   receiptNo?: string;
   trial?: boolean;
   invoiceNo?: string;
+  proofStatus?: string;
 };
+type Proof = { id: string; ref: string; createdAt: string; name: string; mime: string; size: number; chunks: number; status: string };
 type Visits = { total: number; countries: { country: string; n: number }[]; cities: { country: string; city: string; n: number }[] };
 type Coupon = { code: string; percent: number; active: boolean };
 type Reservation = {
@@ -44,7 +46,71 @@ type Reservation = {
   emailed?: boolean;
   trial?: boolean;
   paidAt?: string;
+  proofStatus?: string;
 };
+
+const PROOF_STATE: Record<string, string> = { pending: "por ver", accepted: "aceite", rejected: "rejeitado" };
+
+function proofLabel(paidAt: string | undefined, status: string | undefined) {
+  if (paidAt) return "Paga";
+  if (status === "sent") return "Comprovativo enviado";
+  if (status === "rejected") return "Comprovativo rejeitado";
+  return "Sem comprovativo";
+}
+
+/** Comprovativos de uma referência, com ver ficheiro e "Rejeitar". Só a gestão os vê. */
+function ProofBlock({ code, refCode, proofs, paidAt, status, onRejected, onError }: { code: string; refCode: string; proofs: Proof[]; paidAt?: string; status?: string; onRejected: () => void; onError: (text: string) => void }) {
+  const mine = proofs.filter((item) => item.ref === refCode);
+  const [busy, setBusy] = useState("");
+
+  async function open(item: Proof) {
+    setBusy(item.id);
+    const tab = window.open("", "_blank");
+    try {
+      const parts: BlobPart[] = [];
+      for (let idx = 0; idx < item.chunks; idx += 1) {
+        const res = await luvProofPart({ data: { code, id: item.id, idx } });
+        if (!res.ok) throw new Error("part");
+        const raw = atob(res.data);
+        const bytes = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+        parts.push(bytes);
+      }
+      const url = URL.createObjectURL(new Blob(parts, { type: item.mime }));
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch {
+      tab?.close();
+      onError("Não foi possível abrir o comprovativo.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <div className="grid gap-1 border-t border-black/10 pt-2" data-desk-proofs={refCode}>
+      <p className="font-bold">{proofLabel(paidAt, status)}</p>
+      {mine.map((item) => (
+        <button key={item.id} type="button" onClick={() => open(item)} className="w-fit text-left underline" data-proof-open>
+          {busy === item.id ? "A abrir…" : `Ver comprovativo · ${item.name} · ${Math.max(1, Math.round(item.size / 1024))} KB · ${PROOF_STATE[item.status] ?? item.status}`}
+        </button>
+      ))}
+      {!paidAt && status === "sent" ? (
+        <button
+          type="button"
+          onClick={async () => {
+            const res = await luvRejectProof({ data: { code, ref: refCode } });
+            if (res.ok) onRejected();
+          }}
+          className="w-fit px-3 py-2 font-bold ring-1 ring-black"
+        >
+          Rejeitar
+        </button>
+      ) : null}
+      {paidAt ? <a href={`/api/fatura/${refCode}`} target="_blank" rel="noreferrer" className="w-fit underline">Fatura (PDF)</a> : null}
+    </div>
+  );
+}
 
 const RECEIVED_ALL = `Olá,
 
@@ -109,6 +175,7 @@ export function LuvSickDesk() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [stockIn, setStockIn] = useState(false);
   const [copied, setCopied] = useState("");
+  const [proofs, setProofs] = useState<Proof[]>([]);
   const told = useRef(new Set<string>());
   const unseen = orders.filter((order) => !order.seen);
 
@@ -126,6 +193,7 @@ export function LuvSickDesk() {
     setVisits(res.visits);
     setCoupons(res.coupons);
     setReservations(res.reservations ?? []);
+    setProofs(res.proofs ?? []);
     setStockIn(Boolean(res.stockIn));
     setError("");
     setReady(true);
@@ -190,6 +258,7 @@ export function LuvSickDesk() {
     setOrders((current) =>
       current.map((item) => (item.id === order.id ? { ...item, paidAt: item.paidAt || new Date().toISOString(), nif: res.nif, receiptNo: res.receiptNo, seen: true } : item)),
     );
+    void load(code);
   }
 
   async function flipStock() {
@@ -346,6 +415,15 @@ export function LuvSickDesk() {
                   </button>
                   {order.receiptNo ? <a href={`/recibo/${order.ref}`} className="underline">{order.receiptNo}</a> : null}
                 </div>
+                <ProofBlock
+                  code={code}
+                  refCode={order.ref}
+                  proofs={proofs}
+                  paidAt={order.paidAt}
+                  status={order.proofStatus}
+                  onError={setError}
+                  onRejected={() => void load(code)}
+                />
               </li>
             ))}
           </ul>
@@ -393,12 +471,22 @@ export function LuvSickDesk() {
                     <pre className="whitespace-pre-wrap font-sans">{note}</pre>
                     <a href={`https://wa.me/${waDigits(item.phone)}?text=${encodeURIComponent(note)}`} target="_blank" rel="noreferrer" className="font-bold underline">WhatsApp desta pessoa</a>
                     {item.receiptNo ? <a href={`/recibo/${item.ref}`} className="font-bold underline">{item.receiptNo} · {item.invoiceNo}</a> : null}
+                    <ProofBlock
+                      code={code}
+                      refCode={item.ref}
+                      proofs={proofs}
+                      paidAt={item.paidAt}
+                      status={item.proofStatus}
+                      onError={setError}
+                      onRejected={() => void load(code)}
+                    />
                     <button
                       type="button"
                       onClick={async () => {
                         const res = await luvConfirmReserve({ data: { code, id: item.id } });
                         if (!res.ok) return;
                         setReservations((current) => current.map((row) => (row.id === item.id ? { ...row, paidAt: row.paidAt || new Date().toISOString() } : row)));
+                        void load(code);
                       }}
                       className="w-fit bg-black px-3 py-2 font-bold text-white"
                     >

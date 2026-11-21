@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { getSql } from "@/lib/db";
-import { PAY, PRACTICE_EMAIL, PRODUCTS, SIZES, formatAmount, quote, splitHalf, type Market } from "@/lib/luvsick";
+import { PAY, PRACTICE_EMAIL, PRODUCTS, SIZES, formatAmount, payMethod, quote, splitHalf, type Market } from "@/lib/luvsick";
 import { phoneOkFull } from "@/lib/phone";
 
 const START_QTY = 5;
@@ -31,9 +31,22 @@ export type DeskOrder = {
   email: string;
   trial: boolean;
   invoiceNo: string;
+  proofStatus: string;
 };
 
-function allowed(code: string) {
+async function payApi() {
+  return import("./luvsick-pay.server");
+}
+
+/** O método tem de existir no mercado; Apple Pay só com o Stripe configurado. */
+async function payAllowed(market: Market, pay: string) {
+  const method = payMethod(market, pay);
+  if (!method) return false;
+  if (method.kind === "card") return (await payApi()).stripeReady();
+  return true;
+}
+
+export function allowed(code: string) {
   const a = Buffer.from(code);
   const b = Buffer.from(DESK_CODE);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -70,7 +83,7 @@ async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) 
   await sql.query(`alter table luv_orders add column if not exists invoice_no text not null default ''`);
 }
 
-async function ensureStock() {
+export async function ensureStock() {
   const sql = await getSql();
   await ensureReservationTables(sql);
   await sql.query(`alter table luv_stock add column if not exists received integer`);
@@ -168,6 +181,7 @@ export async function luvPlace(input: {
     return { ok: false as const, error: !input.phone.trim() || phoneOkFull(input.phone) ? "form" as const : "phone" as const };
   }
   const market: Market = country;
+  if (!(await payAllowed(market, input.pay))) return { ok: false as const, error: "pay" as const };
   const sql = await ensureStock();
   const asked = input.coupon.trim().toUpperCase();
   let percent = 0;
@@ -296,6 +310,7 @@ function mapOrder(row: Record<string, unknown>): DeskOrder {
     email: String(row.email ?? ""),
     trial: Boolean(row.trial),
     invoiceNo: String(row.invoice_no ?? ""),
+    proofStatus: String(row.proof_status ?? ""),
   };
 }
 
@@ -310,8 +325,10 @@ export async function luvDesk(code: string) {
   );
   const reservations = await sql.query(`select * from luv_reservations order by created_at desc limit 200`);
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
+  const proofs = await (await payApi()).deskProofs(sql);
   return {
     ok: true as const,
+    proofs,
     stock,
     orders: orders.map(mapOrder),
     visits,
@@ -341,6 +358,7 @@ export type DeskReservation = {
   emailed: boolean;
   trial: boolean;
   paidAt: string;
+  proofStatus: string;
 };
 
 function mapReservation(row: Record<string, unknown>): DeskReservation {
@@ -371,6 +389,7 @@ function mapReservation(row: Record<string, unknown>): DeskReservation {
     emailed: Boolean(row.emailed_at),
     trial: Boolean(row.trial),
     paidAt: row.paid_at ? (row.paid_at instanceof Date ? row.paid_at.toISOString() : String(row.paid_at)) : "",
+    proofStatus: String(row.proof_status ?? ""),
   };
 }
 
@@ -381,7 +400,7 @@ function emailOk(value: string) {
 export async function luvMode() {
   const sql = await ensureStock();
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
-  return { stockIn: flag[0]?.value === "1" };
+  return { stockIn: flag[0]?.value === "1", stripe: (await payApi()).stripeReady() };
 }
 
 function payLabel(market: string, pay: string) {
@@ -623,7 +642,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   const lines = input.lines.filter((line) => line.qty > 0 && SIZES.includes(line.size as (typeof SIZES)[number]) && PRODUCTS.some((item) => item.id === line.productId));
   const email = input.email.trim().toLowerCase();
   const market: Market = input.market === "PT" ? "PT" : "AO";
-  const pay = payLabel(market, input.pay);
+  const pay = (await payAllowed(market, input.pay)) ? payLabel(market, input.pay) : "";
   if (!lines.length || !input.name.trim() || !phoneOkFull(input.phone) || !emailOk(email) || !pay) {
     return { ok: false as const, error: input.phone.trim() && !phoneOkFull(input.phone) ? "phone" as const : "form" as const };
   }
@@ -711,6 +730,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
     emailed: false,
     trial,
     paidAt: "",
+    proofStatus: "",
   };
   const emailed = await mailCustomer(email, `Luv Sick · ${ref} · recibo e fatura`, reserveLetter(paper));
   if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);
@@ -763,7 +783,8 @@ export async function luvConfirmReserve(code: string, id: string) {
   if (clean.length < 8) return { ok: false as const };
   const sql = await ensureStock();
   await ensureReservationTables(sql);
-  await sql.query(`update luv_reservations set paid_at = coalesce(paid_at, now()) where id = $1`, [clean]);
+  const rows = await sql.query<{ ref: string }>(`update luv_reservations set paid_at = coalesce(paid_at, now()) where id = $1 returning ref`, [clean]);
+  if (rows[0]) await (await payApi()).acceptProofs(sql, rows[0].ref);
   return { ok: true as const };
 }
 
@@ -782,10 +803,13 @@ export async function luvIssueReceipt(code: string, id: string, nif: string) {
   const rows = await sql.query<{ ref: string; receipt_no: string }>(`select ref, receipt_no from luv_orders where id = $1`, [id]);
   if (!rows.length) return { ok: false as const, error: "missing" as const };
   const receiptNo = rows[0].receipt_no || `TL-${rows[0].ref.replace(/^LS-/, "")}`;
+  const invoiceNo = `FT-${rows[0].ref.replace(/^LS-/, "")}`;
   await sql.query(
-    `update luv_orders set paid_at = coalesce(paid_at, now()), nif = $2, receipt_no = $3, seen = true where id = $1`,
-    [id, clean, receiptNo],
+    `update luv_orders set paid_at = coalesce(paid_at, now()), nif = $2, receipt_no = $3, seen = true,
+       invoice_no = case when invoice_no = '' then $4 else invoice_no end where id = $1`,
+    [id, clean, receiptNo, invoiceNo],
   );
+  await (await payApi()).acceptProofs(sql, rows[0].ref);
   return { ok: true as const, ref: rows[0].ref, receiptNo, nif: clean };
 }
 

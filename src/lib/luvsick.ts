@@ -139,19 +139,45 @@ export function formatMoney(product: Product, market: Market, qty = 1) {
   return `${product.priceEur * qty} €`;
 }
 
-export const PAY: Record<Market, { id: string; label: string }[]> = {
+export type PayMethod = {
+  id: string;
+  label: string;
+  /** phone = número para pagar; iban = transferência; card = carteira digital (Stripe). */
+  kind: "phone" | "iban" | "card";
+  /** Valor mostrado ao cliente (número ou IBAN formatado). */
+  value: string;
+};
+
+export const PAY: Record<Market, PayMethod[]> = {
   AO: [
-    { id: "multicaixa", label: "Multicaixa Express" },
-    { id: "unitel", label: "Unitel Money" },
-    { id: "applepay", label: "Apple Pay" },
-    { id: "transfer", label: "Transferência bancária" },
+    { id: "multicaixa", label: "Multicaixa Express", kind: "phone", value: "924 498 009" },
+    { id: "transfer", label: "Transferência bancária", kind: "iban", value: "AO06 0058 0000 0889 8681 1010 2" },
   ],
   PT: [
-    { id: "mbway", label: "MB WAY" },
-    { id: "applepay", label: "Apple Pay" },
-    { id: "transfer", label: "Transferência bancária" },
+    { id: "mbway", label: "MB WAY", kind: "phone", value: "938 970 211" },
+    { id: "applepay", label: "Apple Pay", kind: "card", value: "" },
+    { id: "transfer", label: "Transferência bancária", kind: "iban", value: "PT50 3560 0001 9001 8662 6075 3" },
   ],
 };
+
+/** Métodos antigos que já não aparecem, mas podem existir em encomendas guardadas. */
+const LEGACY_PAY: Record<string, string> = { unitel: "Unitel Money", applepay: "Apple Pay" };
+
+/** Procura um método pelo id ou pelo nome (as reservas guardam o nome, as encomendas o id). */
+export function payMethod(market: string, pay: string): PayMethod | null {
+  const list = market === "AO" || market === "PT" ? PAY[market] : [...PAY.PT, ...PAY.AO];
+  const asked = pay.trim().toLowerCase();
+  return list.find((item) => item.id === asked || item.label.toLowerCase() === asked) ?? null;
+}
+
+export function payName(market: string, pay: string) {
+  return payMethod(market, pay)?.label ?? LEGACY_PAY[pay] ?? pay;
+}
+
+/** Valor para copiar: sem espaços nem pontos. */
+export function payCopyValue(value: string) {
+  return value.replace(/[\s.]/g, "");
+}
 
 export const WA = {
   AO: { n: "244935523012", label: "Angola" },
@@ -368,7 +394,7 @@ export const COPY: Record<Lang, Dict> = {
     faqs: [
       { q: "Como encomendo?", a: "Escolhe a peça e o tamanho, junta ao saco e segue os passos. No fim envias a encomenda pelo WhatsApp ou por email, já escrita, com uma referência para a acompanhares." },
       { q: "Que tamanho escolho?", a: "Há XS, S, M, L e XL em todas as peças. As peças vestem largas nas fotografias. Se estiveres entre dois tamanhos, fala connosco por WhatsApp antes de confirmares." },
-      { q: "Como pago?", a: "Em Angola: Multicaixa Express, Unitel Money, Apple Pay ou transferência bancária. Em Portugal: MB WAY, Apple Pay ou transferência bancária. O site nunca pede passwords, PINs nem dados de cartão. A encomenda só fica paga depois de verificarmos o pagamento." },
+      { q: "Como pago?", a: "Em Angola: Multicaixa Express para o 924 498 009 ou transferência bancária para o IBAN AO06 0058 0000 0889 8681 1010 2. Em Portugal: MB WAY para o 938 970 211, transferência bancária para o IBAN PT50 3560 0001 9001 8662 6075 3 ou Apple Pay (em breve). Põe a referência da encomenda no descritivo e, depois de pagar, envia o comprovativo na página do recibo ou pelo WhatsApp. O site nunca pede passwords, PINs nem dados de cartão. A encomenda só fica paga depois de verificarmos o comprovativo." },
       { q: "Como recebo a encomenda?", a: "Dás-nos a morada ao encomendar. Se a entrega for a combinar, confirmamos o custo contigo antes de pagares." },
       { q: "Posso comprar só uma peça?", a: "Sim. Podes encomendar só a manga comprida, só o fato de treino preto ou só o fato de treino castanho — não precisas de levar tudo. Cada fato de treino é o conjunto completo (hoodie e calças)." },
     ],
@@ -479,7 +505,7 @@ export const COPY: Record<Lang, Dict> = {
     faqs: [
       { q: "How do I order?", a: "Pick the piece and the size, add it to the bag and follow the steps. At the end you send the order on WhatsApp or by email, already written, with a reference so you can follow it." },
       { q: "Which size?", a: "Every piece comes in XS, S, M, L and XL. They look loose in the photos. If you are between two sizes, message us on WhatsApp before you confirm." },
-      { q: "How do I pay?", a: "In Angola: Multicaixa Express, Unitel Money, Apple Pay or a bank transfer. In Portugal: MB WAY, Apple Pay or a bank transfer. The site never asks for passwords, PINs or card details. The order is only paid once we have checked the payment." },
+      { q: "How do I pay?", a: "In Angola: Multicaixa Express to 924 498 009 or a bank transfer to IBAN AO06 0058 0000 0889 8681 1010 2. In Portugal: MB WAY to 938 970 211, a bank transfer to IBAN PT50 3560 0001 9001 8662 6075 3 or Apple Pay (coming soon). Put the order reference in the payment description and, once you have paid, send the proof of payment on the receipt page or by WhatsApp. The site never asks for passwords, PINs or card details. The order is only paid once we have checked the proof." },
       { q: "How do I receive it?", a: "You give us the address when you order. If delivery is to be arranged, we confirm the cost with you before you pay." },
       { q: "Can I buy just one piece?", a: "Yes. You can order only the long sleeve, only the black tracksuit or only the brown tracksuit — you don't have to take everything. Each tracksuit is the full set (hoodie and trousers)." },
     ],
@@ -590,7 +616,7 @@ export const COPY: Record<Lang, Dict> = {
     faqs: [
       { q: "Comment je commande ?", a: "Choisis la pièce et la taille, ajoute-la au sac et suis les étapes. À la fin tu envoies la commande par WhatsApp ou par e-mail, déjà rédigée, avec une référence pour la suivre." },
       { q: "Quelle taille ?", a: "Il y a XS, S, M, L et XL sur toutes les pièces. Elles tombent larges sur les photos. Si tu hésites entre deux tailles, écris-nous sur WhatsApp avant de confirmer." },
-      { q: "Comment je paie ?", a: "En Angola : Multicaixa Express, Unitel Money, Apple Pay ou virement bancaire. Au Portugal : MB WAY, Apple Pay ou virement bancaire. Le site ne demande jamais de mots de passe, de codes PIN ni de données de carte. La commande n'est payée qu'une fois le paiement vérifié." },
+      { q: "Comment je paie ?", a: "En Angola : Multicaixa Express au 924 498 009 ou virement bancaire sur l'IBAN AO06 0058 0000 0889 8681 1010 2. Au Portugal : MB WAY au 938 970 211, virement bancaire sur l'IBAN PT50 3560 0001 9001 8662 6075 3 ou Apple Pay (bientôt). Indique la référence de la commande dans le libellé du paiement et, une fois payé, envoie le justificatif sur la page du reçu ou par WhatsApp. Le site ne demande jamais de mots de passe, de codes PIN ni de données de carte. La commande n'est payée qu'une fois le justificatif vérifié." },
       { q: "Comment je reçois la commande ?", a: "Tu nous donnes l'adresse en commandant. Si la livraison est à convenir, on confirme le coût avec toi avant que tu paies." },
       { q: "Je peux acheter une seule pièce ?", a: "Oui. Tu peux commander seulement les manches longues, seulement le survêtement noir ou seulement le survêtement marron — tu n'as pas à tout prendre. Chaque survêtement est l'ensemble complet (hoodie et pantalon)." },
     ],

@@ -21,6 +21,7 @@ import {
 } from "@/lib/luvsick";
 import { DIALS, dialOf, fullPhone } from "@/lib/dials";
 import { phoneOk } from "@/lib/phone";
+import { PAY_COPY, PayDetails } from "@/components/luvsick-pay";
 import { luvAccount, luvAskCode, luvCheckCoupon, luvEnter, luvMode, luvPlace, luvReserve, luvSaveAddress, luvStock, luvVisit } from "@/server/fns";
 
 type Line = { productId: string; size: string; qty: number };
@@ -108,6 +109,7 @@ export function LuvSickApp() {
   const [wish, setWish] = useState<string[]>([]);
   const [wishOnly, setWishOnly] = useState(false);
   const [stockIn, setStockIn] = useState(false);
+  const [stripe, setStripe] = useState(false);
   const [email, setEmail] = useState("");
   const [kind, setKind] = useState<"order" | "reserve">("order");
   const [paper, setPaper] = useState({ deposit: "", balance: "", total: "", receiptNo: "", invoiceNo: "", emailed: false });
@@ -211,7 +213,10 @@ export function LuvSickApp() {
       })
       .catch(() => setStockKnown(false));
     luvMode()
-      .then((mode) => setStockIn(mode.stockIn))
+      .then((mode) => {
+        setStockIn(mode.stockIn);
+        setStripe(Boolean(mode.stripe));
+      })
       .catch(() => setStockIn(false));
   }, []);
 
@@ -435,7 +440,7 @@ export function LuvSickApp() {
       },
     });
     if (!placed.ok) {
-      setOrderError(placed.error === "coupon" ? t.couponBad : placed.error === "phone" ? t.phoneBad : placed.error === "form" ? t.postalBad : t.noStock);
+      setOrderError(placed.error === "coupon" ? t.couponBad : placed.error === "phone" ? t.phoneBad : placed.error === "form" ? t.postalBad : placed.error === "pay" ? t.pickPay : t.noStock);
       const rows = await luvStock();
       const nextStock: Record<string, number> = {};
       rows.forEach((row) => {
@@ -754,14 +759,18 @@ export function LuvSickApp() {
               {orderError ? <p className="text-sm">{orderError}</p> : null}
               <fieldset className="grid gap-2">
                 <legend className="text-sm font-bold">{t.pay}</legend>
-                {PAY[market].map((item) => (
-                  <label key={item.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${pay === item.id ? "border-[#1a1714] bg-[#1a1714] text-white" : "border-[#1a1714]/25"}`}>
-                    <input type="radio" name="reserve-pay" checked={pay === item.id} onChange={() => { setPay(item.id); setPayError(""); }} />
-                    <span className="font-bold">{item.label}</span>
-                  </label>
-                ))}
+                {PAY[market].map((item) => {
+                  const off = item.kind === "card" && !stripe;
+                  return (
+                    <label key={item.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${off ? "cursor-not-allowed border-[#1a1714]/15 opacity-50" : pay === item.id ? "border-[#1a1714] bg-[#1a1714] text-white" : "border-[#1a1714]/25"}`}>
+                      <input type="radio" name="reserve-pay" disabled={off} checked={pay === item.id} onChange={() => { setPay(item.id); setPayError(""); }} />
+                      <span className="font-bold">{item.label}{off ? ` · ${PAY_COPY[lang].soon}` : ""}</span>
+                    </label>
+                  );
+                })}
                 {payError ? <span className="text-sm text-[#1a1714]/70">{payError}</span> : null}
               </fieldset>
+              {pay ? <PayDetails market={market} pay={pay} amountLabel={formatAmount(splitHalf(priced.total).deposit, market)} lang={lang} /> : null}
               <button className="btn-brown w-fit rounded-full px-5 py-3">{t.halfNow}</button>
             </form>
           ) : null}
@@ -825,19 +834,24 @@ export function LuvSickApp() {
               {orderError ? <p className="text-sm text-[#1a1714]/70">{orderError}</p> : null}
               <fieldset className="grid gap-2">
                 <legend className="text-sm font-bold">{t.pay}</legend>
-                {PAY[market].map((item) => (
-                  <label key={item.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${pay === item.id ? "border-[#1a1714] bg-[#1a1714] text-white" : "border-[#1a1714]/25"}`}>
-                    <input
-                      type="radio"
-                      name="pay"
-                      checked={pay === item.id}
-                      onChange={() => { setPay(item.id); setPayError(""); }}
-                    />
-                    <span className="font-bold">{item.label}</span>
-                  </label>
-                ))}
+                {PAY[market].map((item) => {
+                  const off = item.kind === "card" && !stripe;
+                  return (
+                    <label key={item.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${off ? "cursor-not-allowed border-[#1a1714]/15 opacity-50" : pay === item.id ? "border-[#1a1714] bg-[#1a1714] text-white" : "border-[#1a1714]/25"}`}>
+                      <input
+                        type="radio"
+                        name="pay"
+                        disabled={off}
+                        checked={pay === item.id}
+                        onChange={() => { setPay(item.id); setPayError(""); }}
+                      />
+                      <span className="font-bold">{item.label}{off ? ` · ${PAY_COPY[lang].soon}` : ""}</span>
+                    </label>
+                  );
+                })}
                 {payError ? <span className="text-sm text-[#1a1714]/70">{payError}</span> : null}
               </fieldset>
+              {pay ? <PayDetails market={market} pay={pay} amountLabel={totalLabel} lang={lang} /> : null}
               <button className="btn-brown rounded-full px-4 py-3">{t.send}</button>
             </form>
           ) : null}
@@ -852,7 +866,8 @@ export function LuvSickApp() {
               <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {paper.deposit}</p>
               <p className="font-bold">{t.invoiceWord} {paper.invoiceNo} · {paper.balance}</p>
               <p className="text-sm text-[#1a1714]/70">{paper.emailed ? t.mailed : t.halfLater}</p>
-              <a href={`/recibo/${refCode}`} className="text-sm underline">{t.receiptWord} · {t.invoiceWord}</a>
+              <PayDetails market={market} pay={pay} amountLabel={paper.deposit} refCode={refCode} lang={lang} />
+              <a href={`/recibo/${refCode}`} className="text-sm underline">{PAY_COPY[lang].proofLink} · {t.receiptWord} · {t.invoiceWord}</a>
               <form onSubmit={submitCode} className="grid gap-2">
                 <p className="text-sm">{codeNote}</p>
                 <label className="grid gap-1 text-sm font-bold">
@@ -901,7 +916,8 @@ export function LuvSickApp() {
               {trial ? (
                 <p className="font-bold">{t.receiptWord} {paper.receiptNo} · {t.invoiceWord} {paper.invoiceNo}</p>
               ) : null}
-              <a href={`/recibo/${refCode}`} className="text-sm underline">{trial ? `${t.receiptWord} · ${t.invoiceWord}` : "Talão de compra"}</a>
+              {trial ? null : <PayDetails market={market} pay={pay} amountLabel={totalLabel} refCode={refCode} lang={lang} />}
+              <a href={`/recibo/${refCode}`} className="text-sm underline">{trial ? `${t.receiptWord} · ${t.invoiceWord}` : `${PAY_COPY[lang].proofLink} · Talão de compra`}</a>
               <form onSubmit={submitCode} className="grid gap-2">
                 <p className="text-sm">{codeNote}</p>
                 <label className="grid gap-1 text-sm font-bold">

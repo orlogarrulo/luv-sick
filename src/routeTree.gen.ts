@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GestaoRouteImport } from './routes/gestao'
 import { Route as ApiLuvsickRouteImport } from './routes/api/luvsick'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe-webhook'
 import { Route as ReciboRefRouteImport } from './routes/recibo.$ref'
+import { Route as ApiFaturaRefRouteImport } from './routes/api/fatura.$ref'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,9 +31,19 @@ const ApiLuvsickRoute = ApiLuvsickRouteImport.update({
   path: '/api/luvsick',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe-webhook',
+  path: '/api/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReciboRefRoute = ReciboRefRouteImport.update({
   id: '/recibo/$ref',
   path: '/recibo/$ref',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFaturaRefRoute = ApiFaturaRefRouteImport.update({
+  id: '/api/fatura/$ref',
+  path: '/api/fatura/$ref',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -39,34 +51,61 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/recibo/$ref': typeof ReciboRefRoute
+  '/api/fatura/$ref': typeof ApiFaturaRefRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/recibo/$ref': typeof ReciboRefRoute
+  '/api/fatura/$ref': typeof ApiFaturaRefRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/gestao': typeof GestaoRoute
   '/api/luvsick': typeof ApiLuvsickRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/recibo/$ref': typeof ReciboRefRoute
+  '/api/fatura/$ref': typeof ApiFaturaRefRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/gestao' | '/api/luvsick' | '/recibo/$ref'
+  fullPaths:
+    | '/'
+    | '/gestao'
+    | '/api/luvsick'
+    | '/api/stripe-webhook'
+    | '/recibo/$ref'
+    | '/api/fatura/$ref'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/gestao' | '/api/luvsick' | '/recibo/$ref'
-  id: '__root__' | '/' | '/gestao' | '/api/luvsick' | '/recibo/$ref'
+  to:
+    | '/'
+    | '/gestao'
+    | '/api/luvsick'
+    | '/api/stripe-webhook'
+    | '/recibo/$ref'
+    | '/api/fatura/$ref'
+  id:
+    | '__root__'
+    | '/'
+    | '/gestao'
+    | '/api/luvsick'
+    | '/api/stripe-webhook'
+    | '/recibo/$ref'
+    | '/api/fatura/$ref'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GestaoRoute: typeof GestaoRoute
   ApiLuvsickRoute: typeof ApiLuvsickRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ReciboRefRoute: typeof ReciboRefRoute
+  ApiFaturaRefRoute: typeof ApiFaturaRefRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,11 +131,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLuvsickRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/stripe-webhook': {
+      id: '/api/stripe-webhook'
+      path: '/api/stripe-webhook'
+      fullPath: '/api/stripe-webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recibo/$ref': {
       id: '/recibo/$ref'
       path: '/recibo/$ref'
       fullPath: '/recibo/$ref'
       preLoaderRoute: typeof ReciboRefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fatura/$ref': {
+      id: '/api/fatura/$ref'
+      path: '/api/fatura/$ref'
+      fullPath: '/api/fatura/$ref'
+      preLoaderRoute: typeof ApiFaturaRefRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -106,7 +159,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GestaoRoute: GestaoRoute,
   ApiLuvsickRoute: ApiLuvsickRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ReciboRefRoute: ReciboRefRoute,
+  ApiFaturaRefRoute: ApiFaturaRefRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
