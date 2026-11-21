@@ -94,6 +94,9 @@ async function markPaid(sql: Sql, target: Pick<Target, "table" | "ref">) {
       [target.ref, `TL-${code}`, `FT-${code}`],
     );
   } else {
+    // Reserva cancelada pelo prazo e paga depois: volta a ficar activa se o stock ainda chegar.
+    const back = await (await import("./luvsick.server")).reviveReservation(sql, { ref: target.ref });
+    if (!back.ok) console.error("[luvsick] paid reservation could not be reactivated", target.ref, back.error);
     await sql.query(`update luv_reservations set paid_at = coalesce(paid_at, now()) where ref = $1`, [target.ref]);
   }
   await sql.query(`alter table ${target.table} add column if not exists proof_status text not null default ''`);
@@ -119,6 +122,10 @@ export async function createCheckout(ref: string) {
   if (!target) return { ok: false as const, error: "missing" as const };
   if (target.market !== "PT") return { ok: false as const, error: "market" as const };
   if (target.paid) return { ok: false as const, error: "paid" as const };
+  if (target.kind === "reserve") {
+    const gone = await sql.query(`select 1 from luv_reservations where ref = $1 and cancelled_at is not null`, [target.ref]);
+    if (gone.length) return { ok: false as const, error: "cancelled" as const };
+  }
   if (target.cents < 50) return { ok: false as const, error: "amount" as const };
 
   if (target.session) {

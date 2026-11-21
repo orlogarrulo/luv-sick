@@ -82,6 +82,7 @@ type PayRow = {
   paidAt: string;
   proofStatus: string;
   trial: boolean;
+  cancelled: boolean;
 };
 
 function stamp(value: unknown) {
@@ -107,10 +108,11 @@ async function findPayRow(sql: Sql, ref: string): Promise<PayRow | null> {
       paidAt: stamp(row.paid_at),
       proofStatus: String(row.proof_status ?? ""),
       trial: Boolean(row.trial),
+      cancelled: false,
     };
   }
   const rows = await sql.query(
-    `select id, ref, market, pay, total_label, deposit_label, paid_at, proof_status, trial from luv_reservations where ref = $1`,
+    `select id, ref, market, pay, total_label, deposit_label, paid_at, proof_status, trial, cancelled_at from luv_reservations where ref = $1`,
     [asked.ref],
   );
   const row = rows[0];
@@ -126,6 +128,7 @@ async function findPayRow(sql: Sql, ref: string): Promise<PayRow | null> {
     paidAt: stamp(row.paid_at),
     proofStatus: String(row.proof_status ?? ""),
     trial: Boolean(row.trial),
+    cancelled: Boolean(row.cancelled_at),
   };
 }
 
@@ -148,6 +151,7 @@ export async function luvPayInfo(ref: string) {
     proofStatus: row.proofStatus,
     proofs: Number(proofs[0]?.n ?? 0),
     stripe: stripeReady(),
+    cancelled: row.cancelled,
   };
 }
 

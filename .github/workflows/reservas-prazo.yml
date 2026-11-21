@@ -1,0 +1,22 @@
+# Prazo das reservas Luv Sick: chama de hora a hora o endpoint que envia o lembrete das 12 h
+# e cancela as reservas sem comprovativo às 24 h. O plano Hobby do Vercel só permite um cron
+# por dia (está no vercel.json como reserva); este agendamento faz a verificação horária.
+name: Prazo das reservas
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verificar reservas
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' --max-time 60 \
+            -H "Authorization: Bearer ${CRON_SECRET}" https://luvsickstore.com/api/cron-reservas)
+          cat /tmp/out.json; echo
+          test "$code" = "200"

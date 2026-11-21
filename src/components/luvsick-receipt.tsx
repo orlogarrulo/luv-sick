@@ -52,6 +52,7 @@ type PayInfo = {
   proofStatus: string;
   proofs: number;
   stripe?: boolean;
+  cancelled?: boolean;
 };
 
 const STATUS: Record<string, string> = {
@@ -63,8 +64,8 @@ const STATUS: Record<string, string> = {
 
 /** Pagamento por confirmar: dados para pagar, envio do comprovativo e WhatsApp. */
 function PaymentBox({ info, onChange }: { info: PayInfo; onChange: () => void }) {
-  const status = info.paid ? "Paga" : STATUS[info.proofStatus] ?? STATUS[""];
-  const card = payMethod(info.market, info.pay)?.kind === "card" && Boolean(info.stripe) && info.market === "PT";
+  const status = info.paid ? "Paga" : info.cancelled ? "Reserva cancelada" : STATUS[info.proofStatus] ?? STATUS[""];
+  const card = !info.cancelled && payMethod(info.market, info.pay)?.kind === "card" && Boolean(info.stripe) && info.market === "PT";
   const [back] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("cancelado") ? "Pagamento cancelado. Podes tentar outra vez." : ""));
   return (
     <section className="mx-auto grid max-w-sm gap-4 bg-white p-6 text-sm print:hidden" data-payment-box>
@@ -77,7 +78,12 @@ function PaymentBox({ info, onChange }: { info: PayInfo; onChange: () => void })
         Estado: {status}
       </p>
       {back ? <p className="text-center text-sm">{back}</p> : null}
-      <PayDetails market={info.market} pay={info.pay} amountLabel={info.amountLabel} refCode={info.ref} lang="pt" stripe={Boolean(info.stripe)} />
+      {info.cancelled ? (
+        <p className="text-center text-sm" data-reserve-cancelled>
+          {info.proofStatus === "sent" ? "Recebemos o teu comprovativo. Vamos ver se as peças ainda estão disponíveis e avisamos-te." : "Esta reserva foi cancelada. Se já pagaste, envia o comprovativo: reativamos a reserva se as peças ainda estiverem disponíveis."}
+        </p>
+      ) : null}
+      <PayDetails market={info.market} pay={info.pay} amountLabel={info.amountLabel} refCode={info.ref} lang="pt" stripe={Boolean(info.stripe) && !info.cancelled} />
       {info.kind === "reserve" ? <p className="text-xs text-[#1a1714]/70">Valor do sinal de 50%. O restante paga-se no dia do envio.</p> : null}
       {card ? null : <ProofUpload refCode={info.ref} onDone={onChange} />}
       <a href={proofWhatsApp(info.market, info.ref, info.amountLabel)} target="_blank" rel="noreferrer" className="rounded-full border border-[#1a1714] px-5 py-3 text-center font-bold">

@@ -138,3 +138,7 @@ export const luvStripeCheckout = createServerFn({ method: "POST" })
 export const luvStripeSync = createServerFn({ method: "POST" })
   .validator((data: { ref: string }) => data)
   .handler(async ({ data }) => (await import("./stripe.server")).syncCheckout(data.ref));
+
+export const luvCancelReserve = createServerFn({ method: "POST" })
+  .validator((data: { code: string; id: string }) => data)
+  .handler(async ({ data }) => (await luvApi()).luvCancelReserve(data.code, data.id));

@@ -626,3 +626,127 @@ export const COPY: Record<Lang, Dict> = {
     ],
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Prazo das reservas: lembrete às 12 h e cancelamento às 24 h          */
+/* ------------------------------------------------------------------ */
+
+export const RESERVE_REMIND_HOURS = 12;
+export const RESERVE_EXPIRE_HOURS = 24;
+
+export type ReserveNoticeRow = { name: string; ref: string; depositLabel: string; pay: string; market: string };
+
+function payLines(lang: string, row: ReserveNoticeRow) {
+  const method = payMethod(row.market, row.pay);
+  const name = method?.label ?? row.pay;
+  if (method?.kind === "card") {
+    if (lang === "en") return [`Payment: ${name}, on the receipt page.`];
+    if (lang === "fr") return [`Paiement : ${name}, sur la page du reçu.`];
+    return [`Pagamento: ${name}, na página do recibo.`];
+  }
+  const where = method ? `${name}: ${method.value}` : name;
+  if (lang === "en") return [`Payment: ${where}`, `Amount (50% deposit): ${row.depositLabel}`, `Reference to put in the description: ${row.ref}`];
+  if (lang === "fr") return [`Paiement : ${where}`, `Montant (acompte de 50 %) : ${row.depositLabel}`, `Référence à indiquer dans le libellé : ${row.ref}`];
+  return [`Pagamento: ${where}`, `Valor (sinal de 50%): ${row.depositLabel}`, `Referência para pôr no descritivo: ${row.ref}`];
+}
+
+/** Lembrete das 12 horas: o mesmo texto vai por email e pelo WhatsApp da gestão. */
+export function reserveReminderText(lang: string, row: ReserveNoticeRow) {
+  const first = row.name.trim().split(/\s+/)[0] ?? "";
+  const link = `https://luvsickstore.com/recibo/${row.ref}`;
+  if (lang === "en") {
+    return [
+      `Hello ${first},`,
+      "",
+      `Your Luv Sick reservation ${row.ref} is still waiting for the proof of payment.`,
+      `If we don't receive it, the reservation expires in about ${RESERVE_EXPIRE_HOURS - RESERVE_REMIND_HOURS} hours and the pieces go back on sale.`,
+      "",
+      ...payLines(lang, row),
+      "",
+      `Send the proof here: ${link}`,
+      "",
+      "Luv Sick",
+    ].join("\n");
+  }
+  if (lang === "fr") {
+    return [
+      `Bonjour ${first},`,
+      "",
+      `Ta réservation Luv Sick ${row.ref} attend encore le justificatif de paiement.`,
+      `Sans justificatif, la réservation expire dans environ ${RESERVE_EXPIRE_HOURS - RESERVE_REMIND_HOURS} heures et les pièces sont remises en vente.`,
+      "",
+      ...payLines(lang, row),
+      "",
+      `Envoie le justificatif ici : ${link}`,
+      "",
+      "Luv Sick",
+    ].join("\n");
+  }
+  return [
+    `Olá ${first},`,
+    "",
+    `A tua reserva Luv Sick ${row.ref} ainda está à espera do comprovativo de pagamento.`,
+    `Se não o recebermos, a reserva expira dentro de cerca de ${RESERVE_EXPIRE_HOURS - RESERVE_REMIND_HOURS} horas e as peças voltam a ficar à venda.`,
+    "",
+    ...payLines(lang, row),
+    "",
+    `Envia o comprovativo aqui: ${link}`,
+    "",
+    "Luv Sick",
+  ].join("\n");
+}
+
+export function reserveReminderSubject(lang: string, ref: string) {
+  if (lang === "en") return `Luv Sick · ${ref} · your reservation expires soon`;
+  if (lang === "fr") return `Luv Sick · ${ref} · ta réservation expire bientôt`;
+  return `Luv Sick · ${ref} · a tua reserva expira em breve`;
+}
+
+/** Email curto quando a reserva é cancelada (automático às 24 h ou à mão na gestão). */
+export function reserveCancelText(lang: string, row: ReserveNoticeRow, reason: "auto" | "manual") {
+  const first = row.name.trim().split(/\s+/)[0] ?? "";
+  const link = `https://luvsickstore.com/recibo/${row.ref}`;
+  if (lang === "en") {
+    return [
+      `Hello ${first},`,
+      "",
+      reason === "auto"
+        ? `Your Luv Sick reservation ${row.ref} was cancelled because we did not receive the proof of payment within ${RESERVE_EXPIRE_HOURS} hours.`
+        : `Your Luv Sick reservation ${row.ref} has been cancelled.`,
+      `If you have already paid, send the proof here and we will reactivate it if the pieces are still available: ${link}`,
+      "",
+      "Thank you, and see you soon.",
+      "Luv Sick",
+    ].join("\n");
+  }
+  if (lang === "fr") {
+    return [
+      `Bonjour ${first},`,
+      "",
+      reason === "auto"
+        ? `Ta réservation Luv Sick ${row.ref} a été annulée car nous n'avons pas reçu le justificatif de paiement dans les ${RESERVE_EXPIRE_HOURS} heures.`
+        : `Ta réservation Luv Sick ${row.ref} a été annulée.`,
+      `Si tu as déjà payé, envoie le justificatif ici et nous la réactiverons si les pièces sont encore disponibles : ${link}`,
+      "",
+      "Merci, et à bientôt.",
+      "Luv Sick",
+    ].join("\n");
+  }
+  return [
+    `Olá ${first},`,
+    "",
+    reason === "auto"
+      ? `A tua reserva Luv Sick ${row.ref} foi cancelada porque não recebemos o comprovativo de pagamento em ${RESERVE_EXPIRE_HOURS} horas.`
+      : `A tua reserva Luv Sick ${row.ref} foi cancelada.`,
+    `Se já pagaste, envia o comprovativo aqui e reativamos a reserva se as peças ainda estiverem disponíveis: ${link}`,
+    "",
+    "Obrigado e até breve.",
+    "Luv Sick",
+  ].join("\n");
+}
+
+export function reserveCancelSubject(lang: string, ref: string) {
+  if (lang === "en") return `Luv Sick · ${ref} · reservation cancelled`;
+  if (lang === "fr") return `Luv Sick · ${ref} · réservation annulée`;
+  return `Luv Sick · ${ref} · reserva cancelada`;
+}

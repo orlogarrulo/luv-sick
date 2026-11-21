@@ -1,6 +1,22 @@
 import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { getSql } from "@/lib/db";
-import { PAY, PRACTICE_EMAIL, PRODUCTS, SIZES, formatAmount, payMethod, quote, splitHalf, type Market } from "@/lib/luvsick";
+import {
+  PAY,
+  PRACTICE_EMAIL,
+  PRODUCTS,
+  RESERVE_EXPIRE_HOURS,
+  RESERVE_REMIND_HOURS,
+  SIZES,
+  formatAmount,
+  payMethod,
+  quote,
+  reserveCancelSubject,
+  reserveCancelText,
+  reserveReminderSubject,
+  reserveReminderText,
+  splitHalf,
+  type Market,
+} from "@/lib/luvsick";
 import { phoneOkFull } from "@/lib/phone";
 
 const START_QTY = 5;
@@ -78,6 +94,17 @@ async function ensureReservationTables(sql: Awaited<ReturnType<typeof getSql>>) 
   await sql.query(`alter table luv_reservations add column if not exists emailed_at timestamptz`);
   await sql.query(`alter table luv_reservations add column if not exists trial boolean not null default false`);
   await sql.query(`alter table luv_reservations add column if not exists paid_at timestamptz`);
+  await sql.query(`alter table luv_reservations add column if not exists proof_status text not null default ''`);
+  // Prazo das reservas (igual à migração 0019; aqui para a base local e como rede de segurança).
+  await sql.query(`alter table luv_reservations add column if not exists clock_at timestamptz not null default now()`);
+  await sql.query(`alter table luv_reservations add column if not exists reminder_at timestamptz`);
+  await sql.query(`alter table luv_reservations add column if not exists reminder_emailed boolean not null default false`);
+  await sql.query(`alter table luv_reservations add column if not exists cancelled_at timestamptz`);
+  await sql.query(`alter table luv_reservations add column if not exists cancel_reason text not null default ''`);
+  await sql.query(`alter table luv_reservations add column if not exists cancel_emailed boolean not null default false`);
+  await sql.query(`alter table luv_reservations add column if not exists lang text not null default 'pt'`);
+  await sql.query(`alter table luv_reservations add column if not exists stock_held boolean`);
+  await sql.query(`update luv_reservations set stock_held = not coalesce(trial, false) where stock_held is null`);
   await sql.query(`alter table luv_orders add column if not exists email text not null default ''`);
   await sql.query(`alter table luv_orders add column if not exists trial boolean not null default false`);
   await sql.query(`alter table luv_orders add column if not exists invoice_no text not null default ''`);
@@ -141,6 +168,7 @@ async function openLedger(sql: Awaited<ReturnType<typeof getSql>>) {
 
 export async function luvStock(): Promise<StockRow[]> {
   const sql = await ensureStock();
+  await lazySweep(sql);
   const rows = await sql.query<{ product_id: string; size: string; qty: number; received: number | null }>(
     `select product_id, size, qty, received from luv_stock order by product_id, size`,
   );
@@ -323,7 +351,9 @@ export async function luvDesk(code: string) {
   const coupons = await sql.query<{ code: string; percent: number; active: boolean }>(
     `select code, percent, active from luv_coupons order by created_at desc`,
   );
-  const reservations = await sql.query(`select * from luv_reservations order by created_at desc limit 200`);
+  await sweepReservations(sql);
+  const reservations = await sql.query(`select * from luv_reservations where cancelled_at is null order by created_at desc limit 200`);
+  const cancelled = await sql.query(`select * from luv_reservations where cancelled_at is not null order by cancelled_at desc limit 200`);
   const flag = await sql.query<{ value: string }>(`select value from luv_flags where key = 'stock_in'`);
   const proofs = await (await payApi()).deskProofs(sql);
   const pendingCodes = await deskPendingCodes(sql);
@@ -337,6 +367,7 @@ export async function luvDesk(code: string) {
     visits,
     coupons: coupons.map((row) => ({ code: row.code, percent: Number(row.percent), active: Boolean(row.active) })),
     reservations: reservations.map(mapReservation),
+    cancelled: cancelled.map(mapReservation),
     stockIn: flag[0]?.value === "1",
   };
 }
@@ -362,6 +393,16 @@ export type DeskReservation = {
   trial: boolean;
   paidAt: string;
   proofStatus: string;
+  lang: string;
+  clockAt: string;
+  reminderAt: string;
+  reminderEmailed: boolean;
+  cancelledAt: string;
+  cancelReason: string;
+  cancelEmailed: boolean;
+  /** Fica em risco: sem comprovativo e sem pagamento, a menos de 12 h de expirar. */
+  atRisk: boolean;
+  expiresAt: string;
 };
 
 function mapReservation(row: Record<string, unknown>): DeskReservation {
@@ -393,7 +434,191 @@ function mapReservation(row: Record<string, unknown>): DeskReservation {
     trial: Boolean(row.trial),
     paidAt: row.paid_at ? (row.paid_at instanceof Date ? row.paid_at.toISOString() : String(row.paid_at)) : "",
     proofStatus: String(row.proof_status ?? ""),
+    lang: String(row.lang ?? "pt"),
+    clockAt: stamp(row.clock_at ?? row.created_at),
+    reminderAt: row.reminder_at ? stamp(row.reminder_at) : "",
+    reminderEmailed: Boolean(row.reminder_emailed),
+    cancelledAt: row.cancelled_at ? stamp(row.cancelled_at) : "",
+    cancelReason: String(row.cancel_reason ?? ""),
+    cancelEmailed: Boolean(row.cancel_emailed),
+    atRisk: atRisk(row),
+    expiresAt: expiresAt(row),
   };
+}
+
+function expiresAt(row: Record<string, unknown>) {
+  const start = new Date(stamp(row.clock_at ?? row.created_at)).getTime();
+  return Number.isNaN(start) ? "" : new Date(start + RESERVE_EXPIRE_HOURS * 3600 * 1000).toISOString();
+}
+
+function atRisk(row: Record<string, unknown>) {
+  if (row.cancelled_at || row.paid_at || String(row.proof_status ?? "")) return false;
+  const start = new Date(stamp(row.clock_at ?? row.created_at)).getTime();
+  return !Number.isNaN(start) && Date.now() - start >= RESERVE_REMIND_HOURS * 3600 * 1000;
+}
+
+/* ------------------------------------------------------------------ */
+/* Prazo das reservas                                                   */
+/* ------------------------------------------------------------------ */
+
+/** Sem comprovativo, sem pagamento (manual ou Stripe) e ainda não cancelada. */
+const OPEN_RESERVE = `cancelled_at is null and paid_at is null and coalesce(proof_status, '') = ''`;
+
+function noticeRow(row: Record<string, unknown>) {
+  return {
+    name: String(row.customer_name ?? ""),
+    ref: String(row.ref ?? ""),
+    depositLabel: String(row.deposit_label ?? ""),
+    pay: String(row.pay ?? ""),
+    market: String(row.market ?? ""),
+  };
+}
+
+type CancelledRow = { id: string; ref: string; email: string; customer_name: string; deposit_label: string; pay: string; market: string; lang: string; held: boolean };
+
+/**
+ * Cancela numa só instrução: marca a reserva, devolve as peças ao stock (só se estavam retiradas)
+ * e põe stock_held = false. "for update skip locked" + "cancelled_at is null" tornam-na idempotente.
+ */
+async function cancelWhere(sql: Awaited<ReturnType<typeof getSql>>, where: string, params: unknown[], reason: "auto" | "manual") {
+  const reasonIdx = params.length + 1;
+  return sql.query<CancelledRow>(
+    `with picked as (
+       select id, coalesce(stock_held, false) as held from luv_reservations where ${where} for update skip locked
+     ),
+     done as (
+       update luv_reservations r
+          set cancelled_at = now(), cancel_reason = $${reasonIdx}, stock_held = false
+         from picked p
+        where r.id = p.id and r.cancelled_at is null
+       returning r.id, r.ref, r.email, r.customer_name, r.deposit_label, r.pay, r.market, r.lang, r.lines, p.held
+     ),
+     back as (
+       select x."productId" as product_id, x.size, sum(x.qty)::int as qty
+         from done d, jsonb_to_recordset(d.lines::jsonb) as x("productId" text, size text, qty int)
+        where d.held and x.qty > 0
+        group by 1, 2
+     ),
+     upd as (
+       update luv_stock s set qty = s.qty + b.qty from back b
+        where s.product_id = b.product_id and s.size = b.size
+       returning 1
+     )
+     select id, ref, email, customer_name, deposit_label, pay, market, lang, held from done`,
+    [...params, reason],
+  );
+}
+
+async function mailCancelled(sql: Awaited<ReturnType<typeof getSql>>, rows: CancelledRow[], reason: "auto" | "manual") {
+  for (const row of rows) {
+    const lang = String(row.lang || "pt");
+    const sent = await mailCustomer(row.email, reserveCancelSubject(lang, row.ref), reserveCancelText(lang, noticeRow(row as unknown as Record<string, unknown>), reason));
+    if (sent) await sql.query(`update luv_reservations set cancel_emailed = true where id = $1`, [row.id]);
+  }
+}
+
+/**
+ * Lembrete às 12 h e cancelamento às 24 h, contados a partir de clock_at.
+ * Idempotente: cada lembrete é marcado antes de sair (reminder_at) e só sai uma vez;
+ * cada cancelamento só acontece uma vez e devolve o stock uma vez.
+ */
+export async function sweepReservations(sqlIn?: Awaited<ReturnType<typeof getSql>>) {
+  const sql = sqlIn ?? (await ensureStock());
+  const remind = await sql.query(
+    `update luv_reservations set reminder_at = now()
+      where id in (
+        select id from luv_reservations
+         where ${OPEN_RESERVE} and reminder_at is null
+           and clock_at <= now() - make_interval(hours => $1)
+           and clock_at > now() - make_interval(hours => $2)
+         for update skip locked
+      )
+      returning id, ref, email, customer_name, deposit_label, pay, market, lang`,
+    [RESERVE_REMIND_HOURS, RESERVE_EXPIRE_HOURS],
+  );
+  for (const row of remind) {
+    const lang = String(row.lang || "pt");
+    const sent = await mailCustomer(String(row.email), reserveReminderSubject(lang, String(row.ref)), reserveReminderText(lang, noticeRow(row)));
+    if (sent) await sql.query(`update luv_reservations set reminder_emailed = true where id = $1`, [row.id]);
+  }
+  const cancelled = await cancelWhere(sql, `${OPEN_RESERVE} and clock_at <= now() - make_interval(hours => $1)`, [RESERVE_EXPIRE_HOURS], "auto");
+  await mailCancelled(sql, cancelled, "auto");
+  return { reminded: remind.map((row) => String(row.ref)), cancelled: cancelled.map((row) => row.ref) };
+}
+
+let lastSweep = 0;
+
+/** Rede de segurança: quando o stock é lido, corre no máximo uma vez por minuto por instância. */
+async function lazySweep(sql: Awaited<ReturnType<typeof getSql>>) {
+  if (Date.now() - lastSweep < 60_000) return;
+  lastSweep = Date.now();
+  try {
+    await sweepReservations(sql);
+  } catch (err) {
+    console.error("[luvsick] sweep failed", err instanceof Error ? err.message : "unknown");
+  }
+}
+
+/** Botão «Cancelar reserva» da gestão. */
+export async function luvCancelReserve(code: string, id: string) {
+  if (!allowed(code)) return { ok: false as const };
+  const clean = id.replace(/[^a-f0-9]/g, "");
+  if (clean.length < 8) return { ok: false as const };
+  const sql = await ensureStock();
+  const rows = await cancelWhere(sql, `id = $1 and cancelled_at is null`, [clean], "manual");
+  await mailCancelled(sql, rows, "manual");
+  return { ok: true as const, cancelled: rows.length > 0 };
+}
+
+/**
+ * Volta a pôr activa uma reserva cancelada, se o stock ainda chegar (as de ensaio não retiram stock).
+ * O prazo recomeça agora. Usado por «Confirmar pagamento» e pelo Stripe.
+ */
+export async function reviveReservation(sql: Awaited<ReturnType<typeof getSql>>, where: { id?: string; ref?: string }) {
+  const rows = await sql.query(`select id, lines, trial, cancelled_at from luv_reservations where ${where.id ? "id = $1" : "ref = $1"}`, [where.id ?? where.ref]);
+  const row = rows[0];
+  if (!row) return { ok: false as const, error: "missing" as const };
+  if (!row.cancelled_at) return { ok: true as const, revived: false };
+  if (row.trial) {
+    await sql.query(
+      `update luv_reservations set cancelled_at = null, cancel_reason = '', cancel_emailed = false, clock_at = now(), reminder_at = null, reminder_emailed = false
+        where id = $1 and cancelled_at is not null`,
+      [row.id],
+    );
+    return { ok: true as const, revived: true };
+  }
+  let lines: Need[] = [];
+  try {
+    const parsed = JSON.parse(String(row.lines));
+    if (Array.isArray(parsed)) lines = parsed;
+  } catch {
+    lines = [];
+  }
+  const done = await sql.query(
+    `with need as (
+       select product_id, size, sum(qty)::int as qty from jsonb_to_recordset($1::jsonb) as x(product_id text, size text, qty int) group by 1, 2
+     ),
+     me as (
+       select id from luv_reservations where id = $2 and cancelled_at is not null for update
+     ),
+     gate as (
+       select (count(*) = (select count(*) from need) and bool_and(s.qty >= n.qty) and exists (select 1 from me)) as good
+         from need n join luv_stock s on s.product_id = n.product_id and s.size = n.size
+     ),
+     upd as (
+       update luv_stock s set qty = s.qty - n.qty from need n, gate g
+        where g.good and s.product_id = n.product_id and s.size = n.size
+       returning 1
+     )
+     update luv_reservations r
+        set cancelled_at = null, cancel_reason = '', cancel_emailed = false, stock_held = true, clock_at = now(), reminder_at = null, reminder_emailed = false
+       from gate g
+      where g.good and r.id = $2
+     returning r.ref`,
+    [JSON.stringify(lines.map((line) => ({ product_id: line.productId, size: line.size, qty: line.qty }))), row.id],
+  );
+  if (!done.length) return { ok: false as const, error: "stock" as const };
+  return { ok: true as const, revived: true };
 }
 
 function emailOk(value: string) {
@@ -710,11 +935,12 @@ export async function luvReserve(input: { name: string; phone: string; email: st
   const receiptNo = `RC-${code}`;
   const invoiceNo = `FT-${code}`;
   const trial = practiceEmail(email);
+  const lang = input.lang === "en" || input.lang === "fr" ? input.lang : "pt";
   if (trial) {
     await sql.query(
-      `insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-      [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines), totalLabel, depositLabel, balanceLabel, pay, market, receiptNo, invoiceNo, true],
+      `insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial, lang, stock_held)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, false)`,
+      [id, ref, input.name.trim(), input.phone.trim(), email, JSON.stringify(lines), totalLabel, depositLabel, balanceLabel, pay, market, receiptNo, invoiceNo, true, lang],
     );
   } else {
     const placed = await sql.query<{ ref: string }>(
@@ -734,8 +960,8 @@ export async function luvReserve(input: { name: string; phone: string; email: st
          returning 1
        ),
        ins as (
-         insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial)
-         select $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, false
+         insert into luv_reservations (id, ref, customer_name, phone, email, lines, total_label, deposit_label, balance_label, pay, market, receipt_no, invoice_no, trial, lang, stock_held)
+         select $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, false, $15, true
          from gate
          where good
          returning ref
@@ -756,6 +982,7 @@ export async function luvReserve(input: { name: string; phone: string; email: st
         market,
         receiptNo,
         invoiceNo,
+        lang,
       ],
     );
     if (!placed.length) return { ok: false as const, error: "stock" as const };
@@ -781,6 +1008,15 @@ export async function luvReserve(input: { name: string; phone: string; email: st
     trial,
     paidAt: "",
     proofStatus: "",
+    lang,
+    clockAt: new Date().toISOString(),
+    reminderAt: "",
+    reminderEmailed: false,
+    cancelledAt: "",
+    cancelReason: "",
+    cancelEmailed: false,
+    atRisk: false,
+    expiresAt: new Date(Date.now() + RESERVE_EXPIRE_HOURS * 3600 * 1000).toISOString(),
   };
   const emailed = await mailCustomer(email, `Luv Sick · ${ref} · recibo e fatura`, reserveLetter(paper));
   if (emailed) await sql.query(`update luv_reservations set emailed_at = now() where id = $1`, [id]);
@@ -833,6 +1069,8 @@ export async function luvConfirmReserve(code: string, id: string) {
   if (clean.length < 8) return { ok: false as const };
   const sql = await ensureStock();
   await ensureReservationTables(sql);
+  const back = await reviveReservation(sql, { id: clean });
+  if (!back.ok) return { ok: false as const, error: back.error };
   const rows = await sql.query<{ ref: string }>(`update luv_reservations set paid_at = coalesce(paid_at, now()) where id = $1 returning ref`, [clean]);
   if (rows[0]) await (await payApi()).acceptProofs(sql, rows[0].ref);
   return { ok: true as const };

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { PRODUCTS, SIZES } from "@/lib/luvsick";
-import { luvAckOrder, luvConfirmReserve, luvDesk, luvIssueReceipt, luvMarkReservations, luvProofPart, luvRejectProof, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
+import { PRODUCTS, SIZES, reserveReminderText } from "@/lib/luvsick";
+import { luvAckOrder, luvCancelReserve, luvConfirmReserve, luvDesk, luvIssueReceipt, luvMarkReservations, luvProofPart, luvRejectProof, luvResendReserve, luvSaveCoupon, luvSetStock, luvSetStockIn } from "@/server/fns";
 
 type Stock = { productId: string; size: string; qty: number; received: number; out: number };
 type Line = { productId: string; size: string; qty: number };
@@ -59,7 +59,28 @@ type Reservation = {
   trial?: boolean;
   paidAt?: string;
   proofStatus?: string;
+  market?: string;
+  lang?: string;
+  reminderAt?: string;
+  reminderEmailed?: boolean;
+  cancelledAt?: string;
+  cancelReason?: string;
+  cancelEmailed?: boolean;
+  atRisk?: boolean;
+  expiresAt?: string;
 };
+
+function reminderNote(item: Reservation) {
+  return reserveReminderText(item.lang || "pt", { name: item.name, ref: item.ref, depositLabel: item.depositLabel ?? "", pay: item.pay ?? "", market: item.market ?? "" });
+}
+
+/** Linha do prazo de 24 h de uma reserva activa (vazia quando já tem comprovativo ou está paga). */
+function deadlineLabel(item: Reservation) {
+  if (item.paidAt || item.proofStatus || !item.expiresAt) return "";
+  const when = new Date(item.expiresAt).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const reminder = item.reminderAt ? (item.reminderEmailed ? " · Lembrete enviado." : " · Lembrete: o email não saiu, usa o WhatsApp.") : "";
+  return `${item.atRisk ? "Em risco · " : ""}Sem comprovativo: cancela automaticamente em ${when}.${reminder}`;
+}
 
 const PROOF_STATE: Record<string, string> = { pending: "por ver", accepted: "aceite", rejected: "rejeitado" };
 
@@ -185,6 +206,7 @@ export function LuvSickDesk() {
   const [notice, setNotice] = useState("");
   const [nifDraft, setNifDraft] = useState<Record<string, string>>({});
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [cancelledList, setCancelledList] = useState<Reservation[]>([]);
   const [stockIn, setStockIn] = useState(false);
   const [copied, setCopied] = useState("");
   const [proofs, setProofs] = useState<Proof[]>([]);
@@ -207,6 +229,7 @@ export function LuvSickDesk() {
     setVisits(res.visits);
     setCoupons(res.coupons);
     setReservations(res.reservations ?? []);
+    setCancelledList(res.cancelled ?? []);
     setProofs(res.proofs ?? []);
     setPendingCodes(res.pendingCodes ?? []);
     setMailOn(Boolean(res.mailReady));
@@ -490,7 +513,8 @@ export function LuvSickDesk() {
             {reservations.length === 0 ? <p>Ainda não há reservas.</p> : null}
             <ul className="grid gap-2">
               {reservations.map((item) => {
-                const note = personalMessage(stockIn ? "stock" : "received", item);
+                const note = item.atRisk ? reminderNote(item) : personalMessage(stockIn ? "stock" : "received", item);
+                const deadline = deadlineLabel(item);
                 const qty = item.lines.reduce((sum, line) => sum + line.qty, 0);
                 return (
                   <li key={item.id} className="grid gap-2 bg-white p-3 text-sm text-black">
@@ -500,6 +524,7 @@ export function LuvSickDesk() {
                     {item.depositLabel ? <p>{item.paidAt ? "Pago" : "Por confirmar"} 50%: {item.depositLabel}{item.pay ? ` · ${item.pay}` : ""}</p> : null}
                     {item.balanceLabel ? <p>Fatura 50%: {item.balanceLabel} · no dia do envio</p> : null}
                     <p className="text-black/60">{item.receivedSent ? "Receção enviada. " : ""}{item.stockSent ? "Lembrete de stock enviado. " : ""}{item.emailed ? "Email enviado." : "Email por enviar."}</p>
+                    {deadline ? <p className={item.atRisk ? "font-bold text-[#a3341f]" : "text-black/60"} data-reserve-deadline>{deadline}</p> : null}
                     <pre className="whitespace-pre-wrap font-sans">{note}</pre>
                     <a href={`https://wa.me/${waDigits(item.phone)}?text=${encodeURIComponent(note)}`} target="_blank" rel="noreferrer" className="font-bold underline">WhatsApp desta pessoa</a>
                     {item.receiptNo ? <a href={`/recibo/${item.ref}`} className="font-bold underline">{item.receiptNo} · {item.invoiceNo}</a> : null}
@@ -516,7 +541,10 @@ export function LuvSickDesk() {
                       type="button"
                       onClick={async () => {
                         const res = await luvConfirmReserve({ data: { code, id: item.id } });
-                        if (!res.ok) return;
+                        if (!res.ok) {
+                          if ("error" in res && res.error === "stock") setError("Não há stock suficiente para esta reserva.");
+                          return;
+                        }
                         setReservations((current) => current.map((row) => (row.id === item.id ? { ...row, paidAt: row.paidAt || new Date().toISOString() } : row)));
                         void load(code);
                       }}
@@ -537,10 +565,66 @@ export function LuvSickDesk() {
                     >
                       Reenviar recibo e fatura
                     </button>
+                    <button
+                      type="button"
+                      data-cancel-reserve={item.ref}
+                      onClick={async () => {
+                        const warn = item.paidAt ? "\n\nAtenção: esta reserva já está paga. O reembolso tem de ser feito à parte." : "";
+                        if (!window.confirm(`Cancelar a reserva ${item.ref} de ${item.name}?\n\nAs peças voltam ao stock e o cliente recebe um email a avisar.${warn}`)) return;
+                        const res = await luvCancelReserve({ data: { code, id: item.id } });
+                        if (!res.ok) {
+                          setError("Não foi possível cancelar a reserva.");
+                          return;
+                        }
+                        setNotice(`Reserva ${item.ref} cancelada. As peças voltaram ao stock.`);
+                        void load(code);
+                      }}
+                      className="w-fit px-3 py-2 font-bold text-[#a3341f] ring-1 ring-[#a3341f]"
+                    >
+                      Cancelar reserva
+                    </button>
                   </li>
                 );
               })}
             </ul>
+            {cancelledList.length ? (
+              <details className="bg-white p-3 text-sm text-black" data-cancelled-list>
+                <summary className="cursor-pointer font-bold">Canceladas ({cancelledList.length})</summary>
+                <p className="mt-2 text-black/60">Não contam para o stock. Se o cliente enviar o comprovativo, «Confirmar pagamento» volta a pôr a reserva activa, se o stock chegar.</p>
+                <ul className="mt-2 grid gap-2">
+                  {cancelledList.map((item) => (
+                    <li key={item.id} className="grid gap-1 border-t border-black/10 pt-2">
+                      <p className="font-bold">{item.ref} · {item.name}{item.trial ? " · Ensaio" : ""}</p>
+                      <p>{item.phone} · {item.email}</p>
+                      <p>{lineLabel(item.lines)}{item.depositLabel ? ` · 50%: ${item.depositLabel}` : ""}{item.pay ? ` · ${item.pay}` : ""}</p>
+                      <p className="text-black/60">
+                        Cancelada {item.cancelledAt ? new Date(item.cancelledAt).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""} · {item.cancelReason === "manual" ? "à mão" : "automática: sem comprovativo em 24 h"}
+                        {item.cancelEmailed ? " · Email ao cliente enviado." : " · Email ao cliente por enviar."}
+                        {item.reminderAt ? (item.reminderEmailed ? " · Lembrete enviado." : " · Lembrete não saiu.") : ""}
+                      </p>
+                      <ProofBlock code={code} refCode={item.ref} proofs={proofs} paidAt={item.paidAt} status={item.proofStatus} onError={setError} onRejected={() => void load(code)} />
+                      {item.proofStatus === "sent" || item.paidAt ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const res = await luvConfirmReserve({ data: { code, id: item.id } });
+                            if (!res.ok) {
+                              setError("error" in res && res.error === "stock" ? `Não há stock suficiente para reativar a ${item.ref}.` : "Não foi possível confirmar.");
+                              return;
+                            }
+                            setNotice(`Reserva ${item.ref} reativada e paga.`);
+                            void load(code);
+                          }}
+                          className="w-fit bg-black px-3 py-2 font-bold text-white"
+                        >
+                          Confirmar pagamento
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
           </section>
         ) : null}
         {tab === "visits" ? (
