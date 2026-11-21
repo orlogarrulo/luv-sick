@@ -687,7 +687,7 @@ export function LuvSickApp() {
             <>
               <section id="inicio">
                 <video
-                  src="/luvsick/brand/hero-meet-16.mp4"
+                  src="/luvsick/brand/hero-meet-17.mp4"
                   poster="/luvsick/brand/hero-meet-12.jpg"
                   className="mx-auto block h-auto max-h-[70vh] w-full bg-[#cbb7a2] object-contain"
                   autoPlay
@@ -698,7 +698,7 @@ export function LuvSickApp() {
                 <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
                   <p className="luv-title text-[11px] tracking-[0.28em] uppercase">{t.newIn}</p>
                   <h1 className="mt-2 text-4xl leading-tight font-medium tracking-tight sm:text-6xl">{t.heroTitle}</h1>
-                  <button type="button" onClick={goStore} className="btn-brown mx-auto mt-5 block rounded-full px-6 py-3">
+                  <button type="button" onClick={goStore} className="btn-brown mx-auto mt-5 block rounded-full px-12 py-6" style={{ fontSize: 22 }}>
                     {t.shop}
                   </button>
                 </div>
@@ -1052,7 +1052,7 @@ function Totals({ lang, market, priced }: { lang: Lang; market: Market; priced: 
 
 const SPIN: Record<string, { video?: string; stills?: [string, string]; a: string; b: string; la: Record<Lang, string>; lb: Record<Lang, string> }> = {
   "tracksuit-brown": {
-    video: "/luvsick/spin/brown-3.mp4",
+    video: "/luvsick/spin/brown-4.mp4",
     a: "/luvsick/details/brown-hoodie.jpg",
     b: "/luvsick/details/brown-pants.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
@@ -1066,7 +1066,7 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
     lb: { pt: "Manga", en: "Sleeve", fr: "Manche" },
   },
   "tracksuit-black": {
-    video: "/luvsick/spin/black-3.mp4",
+    video: "/luvsick/spin/black-4.mp4",
     a: "/luvsick/details/black-hoodie.jpg",
     b: "/luvsick/details/black-pants.jpg",
     la: { pt: "Hoodie", en: "Hoodie", fr: "Hoodie" },
@@ -1076,11 +1076,21 @@ const SPIN: Record<string, { video?: string; stills?: [string, string]; a: strin
 
 type Detail = { src: string; label: Record<Lang, string> };
 const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
+  "long-sleeve": {
+    front: [
+      { src: "/luvsick/details/sleeve-front.jpg", label: { pt: "Frente", en: "Front", fr: "Face" } },
+      { src: "/luvsick/details/sleeve-arm.jpg", label: { pt: "Manga", en: "Sleeve", fr: "Manche" } },
+    ],
+    back: [
+      { src: "/luvsick/details/sleeve-back-script.jpg", label: { pt: "Lettering na manga", en: "Sleeve lettering", fr: "Lettrage sur la manche" } },
+      { src: "/luvsick/details/sleeve-back.jpg", label: { pt: "Costas", en: "Back", fr: "Dos" } },
+    ],
+  },
   "tracksuit-black": {
     front: [
       { src: "/luvsick/details/black-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
       { src: "/luvsick/details/black-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/black-front-hem.jpg", label: { pt: "Bainha", en: "Hem", fr: "Ourlet" } },
+      { src: "/luvsick/details/black-hem-signature.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
       { src: "/luvsick/details/black-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
     ],
     back: [
@@ -1092,7 +1102,7 @@ const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
     front: [
       { src: "/luvsick/details/brown-hoodie.jpg", label: { pt: "Coração no peito", en: "Chest heart", fr: "Cœur poitrine" } },
       { src: "/luvsick/details/brown-cuff.jpg", label: { pt: "Punho", en: "Cuff", fr: "Poignet" } },
-      { src: "/luvsick/details/brown-front-hem.jpg", label: { pt: "Bainha", en: "Hem", fr: "Ourlet" } },
+      { src: "/luvsick/details/brown-hem-signature.jpg", label: { pt: "Assinatura na bainha", en: "Hem signature", fr: "Signature sur l'ourlet" } },
       { src: "/luvsick/details/brown-pants.jpg", label: { pt: "Calças", en: "Trousers", fr: "Pantalon" } },
     ],
     back: [
@@ -1102,7 +1112,7 @@ const SIDE_DETAILS: Record<string, { front: Detail[]; back: Detail[] }> = {
   },
 };
 
-function PhotoZoom({ src, alt, className, imgClassName, caption }: { src: string; alt: string; className?: string; imgClassName?: string; caption?: string }) {
+function PhotoZoom({ src, alt, className, imgClassName, caption, gallery, index = 0 }: { src: string; alt: string; className?: string; imgClassName?: string; caption?: string; gallery?: { src: string; alt: string }[]; index?: number }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -1110,12 +1120,16 @@ function PhotoZoom({ src, alt, className, imgClassName, caption }: { src: string
         <img src={src} alt={alt} className={imgClassName} draggable={false} />
         {caption ? <span className="mt-2 block text-[11px] tracking-[0.22em] uppercase">{caption}</span> : null}
       </button>
-      {open ? <ZoomStage src={src} alt={alt} onClose={() => setOpen(false)} /> : null}
+      {open ? <ZoomStage items={gallery?.length ? gallery : [{ src, alt }]} start={gallery?.length ? index : 0} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
-function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+function ZoomStage({ items, start, onClose }: { items: { src: string; alt: string }[]; start: number; onClose: () => void }) {
+  const [current, setCurrent] = useState(start);
+  const { src, alt } = items[current] ?? items[0];
+  const many = items.length > 1;
+  const swipe = useRef({ x: 0, y: 0 });
   const frame = useRef<HTMLDivElement>(null);
   const picture = useRef<HTMLImageElement>(null);
   const [scale, setScale] = useState(1);
@@ -1141,6 +1155,16 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
     setShift(point);
   }
 
+  function go(step: number) {
+    if (!many) return;
+    view.current = { scale: 1, x: 0, y: 0 };
+    setScale(1);
+    setShift({ x: 0, y: 0 });
+    setCurrent((value) => (value + step + items.length) % items.length);
+  }
+  const goRef = useRef(go);
+  goRef.current = go;
+
   useEffect(() => {
     const box = frame.current;
     if (!box) return;
@@ -1150,6 +1174,8 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
     };
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
+      else if (event.key === "ArrowLeft") goRef.current(-1);
+      else if (event.key === "ArrowRight") goRef.current(1);
     };
     box.addEventListener("wheel", wheel, { passive: false });
     window.addEventListener("keydown", key);
@@ -1162,6 +1188,13 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
   return (
     <div className="fixed inset-0 z-50 bg-black/92" role="dialog" aria-modal="true" aria-label={alt}>
       <button type="button" onClick={onClose} className="absolute top-4 right-4 z-10 grid size-11 place-items-center rounded-full bg-white text-2xl leading-none text-black" aria-label="Fechar">×</button>
+      {many ? (
+        <>
+          <button type="button" onClick={() => go(-1)} className="absolute top-1/2 left-3 z-10 grid size-12 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-3xl leading-none text-black shadow sm:left-6" aria-label="Anterior">‹</button>
+          <button type="button" onClick={() => go(1)} className="absolute top-1/2 right-3 z-10 grid size-12 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-3xl leading-none text-black shadow sm:right-6" aria-label="Seguinte">›</button>
+          <p className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-black">{alt} · {current + 1}/{items.length}</p>
+        </>
+      ) : null}
       <div
         ref={frame}
         className="flex h-full w-full touch-none items-center justify-center overflow-hidden"
@@ -1169,6 +1202,7 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
           event.currentTarget.setPointerCapture(event.pointerId);
           pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
           gesture.current.moved = false;
+          if (pointers.current.size === 1) swipe.current = { x: event.clientX, y: event.clientY };
           if (pointers.current.size >= 2) {
             const [a, b] = [...pointers.current.values()];
             gesture.current.dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
@@ -1198,6 +1232,14 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
         }}
         onPointerUp={(event) => {
           pointers.current.delete(event.pointerId);
+          if (pointers.current.size === 0 && view.current.scale <= 1) {
+            const dx = event.clientX - swipe.current.x;
+            const dy = event.clientY - swipe.current.y;
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+              go(dx < 0 ? 1 : -1);
+              return;
+            }
+          }
           if (pointers.current.size > 0 || gesture.current.moved) return;
           const now = Date.now();
           if (now - lastTap.current < 280) apply(view.current.scale > 1 ? 1 : limit(), { x: 0, y: 0 });
@@ -1227,6 +1269,19 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
   const product = productById(id);
   const line = product?.material[lang].split(".")[0] ?? "";
   const [turn, setTurn] = useState(0);
+  const reel = useRef<(HTMLVideoElement | null)[]>([]);
+
+  useEffect(() => {
+    reel.current.forEach((video, slot) => {
+      if (!video) return;
+      if (slot === index) {
+        video.currentTime = 0;
+        void video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }, [index]);
 
   useEffect(() => {
     setTurn(0);
@@ -1257,19 +1312,27 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
       }}
     >
       <div className="relative mx-auto flex h-[70vh] max-h-[760px] w-full max-w-3xl items-center justify-center bg-white">
-        {spin.video ? (
-          <video
-            key={spin.video}
-            src={spin.video}
-            className="max-h-full max-w-full object-contain"
-            autoPlay
-            muted
-            playsInline
-            onEnded={() => setIndex((current) => (current + 1) % ids.length)}
-          />
-        ) : (
-          <img src={spin.stills?.[turn]} alt="" className="max-h-full max-w-full object-contain" />
+        {/* Os três vídeos ficam carregados e sobrepostos; a troca é um cruzamento suave, sem remontar o elemento (evita o frame vazio/flash). */}
+        {ids.map((item, slot) =>
+          SPIN[item].video ? (
+            <video
+              key={item}
+              ref={(element) => {
+                reel.current[slot] = element;
+              }}
+              src={SPIN[item].video}
+              className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transition-opacity duration-500 ${slot === index ? "opacity-100" : "opacity-0"}`}
+              muted
+              playsInline
+              preload="auto"
+              autoPlay={slot === 0}
+              onEnded={() => {
+                if (slot === index) setIndex((current) => (current + 1) % ids.length);
+              }}
+            />
+          ) : null,
         )}
+        {spin.video ? null : <img src={spin.stills?.[turn]} alt="" className="max-h-full max-w-full object-contain" />}
         <button
           type="button"
           onClick={() => {
@@ -1296,8 +1359,8 @@ function DetailReel({ lang, onOpen }: { lang: Lang; onOpen: (id: string) => void
         </div>
       </div>
       <div className="mx-auto flex max-w-lg justify-center gap-4 px-4 pb-10">
-        {([{ src: spin.a, label: spin.la[lang] }, { src: spin.b, label: spin.lb[lang] }] as const).map((item) => (
-          <PhotoZoom key={item.src} src={item.src} alt={item.label} caption={item.label} className="w-36 text-left sm:w-44" imgClassName="h-40 w-full rounded-2xl object-cover sm:h-48" />
+        {([{ src: spin.a, label: spin.la[lang] }, { src: spin.b, label: spin.lb[lang] }] as const).map((item, index, all) => (
+          <PhotoZoom key={item.src} src={item.src} alt={item.label} caption={item.label} gallery={all.map((entry) => ({ src: entry.src, alt: entry.label }))} index={index} className="w-36 text-left sm:w-44" imgClassName="h-40 w-full rounded-2xl object-cover sm:h-48" />
         ))}
       </div>
     </section>
@@ -1385,9 +1448,9 @@ function ProductView({
                 { src: SPIN[product.id].a, label: SPIN[product.id].la[lang] },
                 { src: SPIN[product.id].b, label: SPIN[product.id].lb[lang] },
               ]
-          ).map((item, _index, all) => {
+          ).map((item, index, all) => {
             const size = all.length > 3 ? "h-28 w-[4.75rem] sm:h-36 sm:w-28" : "h-36 w-28";
-            return <PhotoZoom key={item.src} src={item.src} alt={item.label} className={`${size} overflow-hidden rounded-2xl`} imgClassName={`${size} object-cover`} />;
+            return <PhotoZoom key={item.src} src={item.src} alt={item.label} gallery={all.map((entry) => ({ src: entry.src, alt: entry.label }))} index={index} className={`${size} overflow-hidden rounded-2xl`} imgClassName={`${size} object-cover`} />;
           })}
         </div>
       ) : null}
